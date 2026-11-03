@@ -90,11 +90,17 @@ public sealed class GameState
     public Move? FindLegal(string from, string to, char? promo = null)
     {
         var f = Sq(from); var t = Sq(to);
-        // ChessLib encodes castling as king->rook-square; translate the
-        // destination-square form (e1g1/e1c1 — standard UCI + human intuition)
-        if (to.Length == 2 && from.Length == 2 && from[1] == to[1]
-            && Occupant(from) is { Type: PieceTypes.King })
-            t = Sq(to[0] switch { 'g' => "h" + to[1], 'c' => "a" + to[1], _ => to });
+        // ChessLib encodes castling as king->rook-square; translate the standard
+        // destination form. Only the four real castle patterns remap — any other
+        // same-rank king step (e.g. d6c6) must stay as-is.
+        var castleTo = (from, to) switch
+        {
+            ("e1", "g1") => "h1", ("e1", "c1") => "a1",
+            ("e8", "g8") => "h8", ("e8", "c8") => "a8",
+            _ => null
+        };
+        if (castleTo is not null && Occupant(from) is { Type: PieceTypes.King })
+            t = Sq(castleTo);
         foreach (var em in _game.Pos.GenerateMoves())
         {
             var m = em.Move;

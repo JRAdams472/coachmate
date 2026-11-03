@@ -22,6 +22,7 @@
                         <KeyboardAccelerator Key="S" Modifiers="Control"/>
                     </MenuFlyoutItem.KeyboardAccelerators>
                 </MenuFlyoutItem>
+                <MenuFlyoutItem x:Name="FileLog" Text="Open log folder"/>
                 <MenuFlyoutSeparator/>
                 <MenuFlyoutItem x:Name="FileExit" Text="Exit"/>
             </muxc:MenuBarItem>

@@ -82,6 +82,14 @@ public sealed partial class MainWindow : Window
         RatingText.Text = $"You: {_rating.Display}";
         _ollamaEndpoint = LoadSetting("ollamaEndpoint") ?? _ollamaEndpoint;
         _ollamaModel = LoadSetting("ollamaModel") ?? _ollamaModel;
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(LogPath)!);
+            if (System.IO.File.Exists(LogPath) && new FileInfo(LogPath).Length > 1_000_000)
+                System.IO.File.WriteAllText(LogPath, "");
+        }
+        catch { }
+        UciEngine.DebugLogPath = LogPath;
         BuildPiecesMenu();
         ApplyPieceStyle();
         Board.SquareClicked += sq => _ = HandleSquareAsync(sq);
@@ -94,6 +102,8 @@ public sealed partial class MainWindow : Window
         AskBtn.Click += async (_, _) => await AskCoachChatAsync();
         FileNew.Click += async (_, _) => await NewGameAsync();
         FileSave.Click += async (_, _) => await SaveGameAsync();
+        FileLog.Click += (_, _) => System.Diagnostics.Process.Start(
+            "explorer.exe", Path.GetDirectoryName(LogPath)!);
         FileExit.Click += (_, _) => Close();
         ModePlay.Click += async (_, _) =>
         {
@@ -277,6 +287,15 @@ public sealed partial class MainWindow : Window
             _rating.SetEstimate(slider.Value);
             RatingText.Text = $"You: {_rating.Display}";
         }
+    }
+
+    private static readonly string LogPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "CoachMate", "coach.log");
+
+    private static void Log(string m)
+    {
+        try { System.IO.File.AppendAllLines(LogPath, new[] { $"{DateTime.Now:HH:mm:ss.fff} {m}" }); } catch { }
     }
 
     private static string SettingsPath => Path.Combine(
@@ -494,13 +513,24 @@ public sealed partial class MainWindow : Window
         if (lvl > 0)
             reply = (await _engine.AnalyzeAsync(_game.Fen, 12, elo: lvl)).BestMove;
 
+        Log($"reply: fen={_game.Fen} best={reply ?? "null"}");
         if (reply is not null and not "(none)")
         {
-            var c = _game.Clone();
-            var rs = c.TryUci(reply) ?? reply;
-            _game.TryUci(reply);
-            _lastMove = (reply[..2], reply.Substring(2, 2));
-            _notes.Insert(0, new CoachNote { Title = $"» {MoveNum()}… {rs}", IsEngine = true });
+            var rs = _game.TryUci(reply);
+            if (rs is null)
+            {
+                Log($"REPLY DROPPED: '{reply}' not legal at {_game.Fen}");
+                _notes.Insert(0, new CoachNote
+                {
+                    Title = $"⚠ engine tried '{reply}'",
+                    Why = { "Move rejected — details in coach.log (File ▸ Open log folder)." }
+                });
+            }
+            else
+            {
+                _lastMove = (reply[..2], reply.Substring(2, 2));
+                _notes.Insert(0, new CoachNote { Title = $"» {MoveNum()}… {rs}", IsEngine = true });
+            }
         }
         _busy = false;
         Refresh();
