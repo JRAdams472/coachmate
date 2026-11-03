@@ -107,7 +107,7 @@ public sealed partial class UciEngine : IAsyncDisposable
     }
 
     /// <summary>Runs one search; serialized so only one is in flight at a time.</summary>
-    public async Task<SearchResult> AnalyzeAsync(string fen, int depth = 14, int? skill = null)
+    public async Task<SearchResult> AnalyzeAsync(string fen, int depth = 14, int? skill = null, int? elo = null)
     {
         await _searchLock.WaitAsync();
         try
@@ -115,11 +115,13 @@ public sealed partial class UciEngine : IAsyncDisposable
             _pvs.Clear();
             var tcs = _pending = new TaskCompletionSource<SearchResult>(TaskCreationOptions.RunContinuationsAsynchronously);
             if (skill is { } s) Send($"setoption name Skill Level value {s}");
+            if (elo is { } el) { Send("setoption name UCI_LimitStrength value true"); Send($"setoption name UCI_Elo value {el}"); }
             Send("stop");
             Send($"position fen {fen}");
             Send($"go depth {depth}");
             var res = await tcs.Task;
             if (skill is not null) Send("setoption name Skill Level value 20");
+            if (elo is not null) Send("setoption name UCI_LimitStrength value false");
             return res;
         }
         finally { _searchLock.Release(); }

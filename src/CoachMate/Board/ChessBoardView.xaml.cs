@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -26,14 +25,25 @@ public sealed partial class ChessBoardView : UserControl
     private bool _flipped;
     private readonly Border[,] _cells = new Border[8, 8];
     private readonly TextBlock[,] _glyphs = new TextBlock[8, 8];
-    private readonly Border[,] _marks = new Border[8, 8];   // last-move/selection/check tint
+    private readonly Border[,] _marks = new Border[8, 8];
     private readonly List<(UIElement El, Grid Host)> _targets = new();
 
-    public event Action<string>? SquareClicked;
+    // drag state
+    private string? _dragFrom;
+    private (int R, int C)? _pressCell;
+    private TextBlock? _ghost;
+    private bool _dragging;
 
-    public ChessBoardView() => InitializeComponent();
+    public event Action<string>? SquareClicked;      // click-select flow
+    public event Action<string, string>? MoveAttempted; // drag from->to
+    public event Action? PositionRendered;
 
-    protected override void OnApplyTemplate() { }
+    public ChessBoardView()
+    {
+        InitializeComponent();
+        Root.PointerMoved += OnPointerMoved;
+        Root.PointerReleased += OnPointerReleased;
+    }
 
     private bool _built;
 
@@ -59,7 +69,6 @@ public sealed partial class ChessBoardView : UserControl
             var inner = new Grid { Width = 60, Height = 60 };
             inner.Children.Add(mark);
             inner.Children.Add(glyph);
-            // coords: file letter bottom-right of last row, rank number top-left of first col
             if (r == 7)
                 inner.Children.Add(new TextBlock
                 {
@@ -79,8 +88,7 @@ public sealed partial class ChessBoardView : UserControl
                     VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(3, 2, 0, 0)
                 });
             cell.Child = inner;
-            var name = SqName(r, c);
-            cell.Tag = name;
+            cell.Tag = SqName(r, c);
             cell.PointerPressed += OnCellPressed;
             Grid.SetRow(cell, r); Grid.SetColumn(cell, c);
             BoardGrid.Children.Add(cell);
@@ -89,9 +97,7 @@ public sealed partial class ChessBoardView : UserControl
     }
 
     public string SqName(int r, int c) =>
-        _flipped
-            ? $"{(char)('h' - c)}{r + 1}"
-            : $"{(char)('a' + c)}{8 - r}";
+        _flipped ? $"{(char)('h' - c)}{r + 1}" : $"{(char)('a' + c)}{8 - r}";
 
     public void Flip() { _flipped = !_flipped; Rebuild(); }
 
@@ -101,9 +107,6 @@ public sealed partial class ChessBoardView : UserControl
         _built = false; EnsureBuilt();
         PositionRendered?.Invoke();
     }
-
-    /// <summary>Fired after a flip so the host can repaint pieces/highlights.</summary>
-    public event Action? PositionRendered;
 
     public void SetPosition(IReadOnlyDictionary<string, (char Glyph, bool IsWhite)> pieces)
     {
@@ -165,27 +168,24 @@ public sealed partial class ChessBoardView : UserControl
         var sx = x1 + dx * 6 / len; var sy = y1 + dy * 6 / len;
         var ex = x2 - dx * 20 / len; var ey = y2 - dy * 20 / len;
         var col = color ?? Windows.UI.Color.FromArgb(255, 61, 145, 66);
-        var line = new Line
+        Overlay.Children.Add(new Line
         {
             X1 = sx, Y1 = sy, X2 = ex, Y2 = ey,
             Stroke = new SolidColorBrush(col), StrokeThickness = 7, Opacity = .8,
             StrokeEndLineCap = PenLineCap.Triangle
-        };
-        Overlay.Children.Add(line);
+        });
         var ux = dx / len; var uy = dy / len;
         var (px, py) = (-uy * 9, ux * 9);
-        var head = new Polygon
+        Overlay.Children.Add(new Polygon
         {
             Fill = new SolidColorBrush(col), Opacity = .8,
-       
             Points = new PointCollection
             {
                 new Point(ex + ux * 16, ey + uy * 16),
                 new Point(ex + px, ey + py),
                 new Point(ex - px, ey - py)
             }
-        };
-        Overlay.Children.Add(head);
+        });
     }
 
     public void ClearArrows() => Overlay.Children.Clear();
@@ -202,6 +202,63 @@ public sealed partial class ChessBoardView : UserControl
         return _flipped ? (7 - rank, 7 - f) : (rank, f);
     }
 
+    private string? CellAt(Point p)
+    {
+        var c = (int)(p.X / 60); var r = (int)(p.Y / 60);
+        return r is >= 0 and <= 7 && c is >= 0 and <= 7 ? SqName(r, c) : null;
+    }
+
     private void OnCellPressed(object sender, PointerRoutedEventArgs e)
-        => SquareClicked?.Invoke((string)((Border)sender).Tag);
+    {
+        var sq = (string)((Border)sender).Tag;
+        var cell = Rc(sq);
+        _pressCell = cell;
+        _dragFrom = sq;
+        _dragging = false;
+        e.Handled = true;
+    }
+
+    private void OnPointerMoved(object sender, PointerRoutedEventArgs e)
+    {
+        if (_dragFrom is null || _pressCell is null) return;
+        var pt = e.GetCurrentPoint(Root).Position;
+        if (!_dragging)
+        {
+            var (r, c) = _pressCell.Value;
+            var cx = c * 60 + 30; var cy = r * 60 + 30;
+            if (Math.Abs(pt.X - cx) + Math.Abs(pt.Y - cy) < 14) return;
+            // begin drag if the source has a glyph
+            if (string.IsNullOrEmpty(_glyphs[r, c].Text)) { _dragFrom = null; return; }
+            _dragging = true;
+            _ghost = new TextBlock
+            {
+                Text = _glyphs[r, c].Text, FontSize = 44,
+                Foreground = _glyphs[r, c].Foreground, IsHitTestVisible = false, Opacity = .9
+            };
+            Overlay.Children.Add(_ghost);
+            _glyphs[r, c].Opacity = 0.35;
+            SquareClicked?.Invoke(_dragFrom); // selects the piece (shows dots)
+        }
+        if (_ghost is not null)
+        {
+            Canvas.SetLeft(_ghost, pt.X - 28);
+            Canvas.SetTop(_ghost, pt.Y - 28);
+        }
+    }
+
+    private void OnPointerReleased(object sender, PointerRoutedEventArgs e)
+    {
+        var from = _dragFrom;
+        var wasDragging = _dragging;
+        var cell = _pressCell;
+        _dragFrom = null; _pressCell = null; _dragging = false;
+        if (_ghost is not null) { Overlay.Children.Remove(_ghost); _ghost = null; }
+        if (cell is { } pc) _glyphs[pc.R, pc.C].Opacity = 1;
+        if (from is null) return;
+        var to = CellAt(e.GetCurrentPoint(Root).Position);
+        if (wasDragging && to is not null && to != from)
+            MoveAttempted?.Invoke(from, to);
+        else if (!wasDragging)
+            SquareClicked?.Invoke(from);
+    }
 }
