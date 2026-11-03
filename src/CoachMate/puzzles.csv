@@ -1,0 +1,8 @@
+PuzzleId,FEN,Moves,Rating,RatingDeviation,Popularity,NbPlays,Themes,GameUrl
+CM001,7k/6p1/7K/8/8/8/8/Q7 w - - 0 1,a1g7,600,150,90,1000,mateIn1,local
+CM002,k7/8/1K6/8/8/8/8/7R w - - 0 1,h1h8,550,150,90,1000,mateIn1,local
+CM003,r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5Q2/PPPP1PPP/RNB1K1NR w KQkq - 0 1,f3f7,700,150,90,1000,mateIn1 opening,local
+CM004,6k1/5ppp/8/4Q3/8/8/8/6K1 w - - 0 1,e5e8,650,150,90,1000,mateIn1 backRankMate,local
+CM005,7k/8/5KP1/8/8/8/8/R7 w - - 0 1,a1a8,580,150,90,1000,mateIn1 endgame,local
+CM006,6k1/5ppp/8/8/8/8/6PP/4R1K1 w - - 0 1,e1e8,600,150,90,1000,mateIn1 backRankMate,local
+CM007,6k1/6pp/8/8/8/8/6P1/4Q1K1 w - - 0 1,e1e8,620,150,90,1000,mateIn1 backRankMate,local

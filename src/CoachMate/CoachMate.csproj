@@ -19,8 +19,10 @@
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.260921001" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2957" />
     <PackageReference Include="Rudzoft.ChessLib" Version="0.0.3" />
+    <PackageReference Include="ZstdSharp.Port" Version="0.8.6" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="..\..\engine\stockfish.exe" Link="engine\stockfish.exe" LogicalName="CoachMate.engine.stockfish.exe" />
+    <EmbeddedResource Include="puzzles.csv" LogicalName="CoachMate.puzzles.csv" />
   </ItemGroup>
 </Project>
