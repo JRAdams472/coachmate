@@ -6,3 +6,5 @@ TestResults/
 artifacts/
 publish/
 *.suo
+dist/
+dist-single/
