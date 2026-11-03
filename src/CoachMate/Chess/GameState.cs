@@ -24,7 +24,31 @@ public sealed class GameState
     public bool IsStalemate => !InCheck && !_game.Pos.GenerateMoves().Any();
     public bool IsRepetition => _game.IsRepetition;
     public bool IsFiftyMove => _game.Pos.Rule50 >= 100;
-    public bool IsGameOver => IsCheckmate || IsStalemate || IsRepetition || IsFiftyMove;
+
+    /// <summary>Dead position: bare kings, or king + single minor vs bare king.</summary>
+    public bool IsInsufficientMaterial
+    {
+        get
+        {
+            var minors = 0;
+            foreach (var (_, t, _) in BoardSquares())
+            {
+                if (t is PieceTypes.Pawn or PieceTypes.Rook or PieceTypes.Queen) return false;
+                if (t is PieceTypes.Knight or PieceTypes.Bishop) minors++;
+            }
+            return minors <= 1;
+        }
+    }
+
+    /// <summary>Short label for the draw rule that ended the game, or null.</summary>
+    public string? DrawReason =>
+        IsStalemate ? "stalemate"
+        : IsRepetition ? "threefold repetition"
+        : IsFiftyMove ? "fifty-move rule"
+        : IsInsufficientMaterial ? "insufficient material"
+        : null;
+
+    public bool IsGameOver => IsCheckmate || DrawReason is not null;
     public int MoveCount => _history.Count;
     public IReadOnlyList<string> MoveSans => _history.Select(h => h.San).ToList();
 
