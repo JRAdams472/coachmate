@@ -115,3 +115,38 @@ public class CastleUci
         Assert.Equal("Kg6", g.TryUci("f6g6"));
     }
 }
+
+public class DrawRules
+{
+    [Fact]
+    public void BareKings_InsufficientMaterial()
+    {
+        var g = new CoachMate.Chess.GameState("8/8/4k3/8/8/4K3/8/8 w - - 0 1");
+        Assert.True(g.IsGameOver);
+        Assert.Equal("insufficient material", g.DrawReason);
+    }
+
+    [Fact]
+    public void KingPlusKnightVsKing_InsufficientMaterial()
+    {
+        var g = new CoachMate.Chess.GameState("8/8/4k3/8/8/4K1N1/8/8 w - - 0 1");
+        Assert.Equal("insufficient material", g.DrawReason);
+    }
+
+    [Fact]
+    public void KnightVsKnight_NotInsufficientMaterial()
+    {
+        // helpmate sequences exist -> not a dead position (K+N vs K+N)
+        var g = new CoachMate.Chess.GameState("8/8/4k3/8/8/4K1N1/4n3/8 w - - 0 1");
+        Assert.False(g.IsGameOver);
+        Assert.Null(g.DrawReason);
+    }
+
+    [Fact]
+    public void Stalemate_Labeled()
+    {
+        // black to move, not in check, no legal moves (classic Q vs K stalemate)
+        var g = new CoachMate.Chess.GameState("k7/2Q5/8/8/8/8/8/6K1 b - - 0 1");
+        Assert.Equal("stalemate", g.DrawReason);
+    }
+}

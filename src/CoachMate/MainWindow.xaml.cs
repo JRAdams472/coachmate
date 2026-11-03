@@ -561,11 +561,20 @@ public sealed partial class MainWindow : Window
             score = _game.WhiteToMove == _userIsWhite ? 0 : 1; // side to move is mated
         else score = 0.5; // stalemate / fifty-move / repetition
         _rating.Apply(LevelRatings[_levelIndex], 60, score);
-        _notes.Insert(0, new CoachNote
+        var note = new CoachNote
         {
             Title = $"Game over — rating {_rating.Display}",
             Why = { $"Games scored: {_rating.Games}" }
-        });
+        };
+        if (_game.DrawReason is { } dr)
+            note.Why.Add(dr switch
+            {
+                "stalemate" => "Stalemate — the side to move had no legal moves but wasn't in check.",
+                "threefold repetition" => "Threefold repetition — the same position occurred three times.",
+                "fifty-move rule" => "Fifty-move rule — 50 moves passed without a capture or pawn move.",
+                _ => "Insufficient material — neither side has enough pieces to ever deliver mate."
+            });
+        _notes.Insert(0, note);
         RatingText.Text = $"You: {_rating.Display}";
         Refresh();
     }
@@ -774,8 +783,7 @@ public sealed partial class MainWindow : Window
         }
         if (!_busy)
             Status.Text = _game.IsCheckmate ? (_game.WhiteToMove ? "Checkmate — Black wins" : "Checkmate — White wins")
-                : _game.IsStalemate ? "Stalemate — draw"
-                : _game.IsRepetition || _game.IsFiftyMove ? "Draw"
+                : _game.DrawReason is { } dr ? $"Draw — {dr}"
                 : _game.InCheck ? (_game.WhiteToMove ? "White to move — check!" : "Black to move — check!")
                 : !_engine.IsReady ? "Engine: starting..."
                 : _game.WhiteToMove ? "White to move" : "Black to move";
