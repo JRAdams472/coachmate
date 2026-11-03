@@ -122,6 +122,8 @@ public sealed partial class MainWindow : Window
         PuzzleDbItem.Click += async (_, _) => await DownloadDbAsync();
         AiSettingsItem.Click += async (_, _) => await AiSettingsAsync();
         RatingItem.Click += async (_, _) => await MyRatingAsync();
+        BookHeader.Click += (_, _) => SetCloudDbCollapsed(!_cloudDbCollapsed);
+        SetCloudDbCollapsed(LoadSetting("cloudDbCollapsed") == "1");
         ((FrameworkElement)Content).Loaded += OnLoaded;
         Closed += OnClosed;
         BuildPromoPanel();
@@ -130,6 +132,15 @@ public sealed partial class MainWindow : Window
 
     private List<string> _importedSets = new();
     private readonly List<ToggleMenuFlyoutItem> _pieceItems = new();
+    private bool _cloudDbCollapsed;
+
+    private void SetCloudDbCollapsed(bool collapsed)
+    {
+        _cloudDbCollapsed = collapsed;
+        BookBody.Visibility = collapsed ? Visibility.Collapsed : Visibility.Visible;
+        BookChevron.Text = collapsed ? "▸" : "▾";
+        SaveSetting("cloudDbCollapsed", collapsed ? "1" : "0");
+    }
 
     private static void CheckRadio(ToggleMenuFlyoutItem picked, params ToggleMenuFlyoutItem[] group)
     {

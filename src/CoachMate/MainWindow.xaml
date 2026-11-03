@@ -113,7 +113,15 @@
                 </Border>
                 <Border Background="#262421" CornerRadius="8" Padding="10" Width="340">
                     <StackPanel Spacing="4">
-                        <TextBlock Text="Cloud DB" FontWeight="Bold" Foreground="#e8e6e3"/>
+                        <Button x:Name="BookHeader" Padding="0" Background="Transparent"
+                                HorizontalContentAlignment="Stretch" BorderThickness="0">
+                            <Grid>
+                                <TextBlock Text="Cloud DB" FontWeight="Bold" Foreground="#e8e6e3"/>
+                                <TextBlock x:Name="BookChevron" Text="▾" Foreground="#9e9a93"
+                                           HorizontalAlignment="Right"/>
+                            </Grid>
+                        </Button>
+                        <StackPanel x:Name="BookBody" Spacing="4">
                         <ItemsControl x:Name="BookList">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
@@ -133,6 +141,7 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
                         <TextBlock x:Name="BookStatus" Text="—" Foreground="#9e9a93" FontSize="12"/>
+                        </StackPanel>
                     </StackPanel>
                 </Border>
                 <Border Background="#262421" CornerRadius="8" Padding="10" Width="340">
