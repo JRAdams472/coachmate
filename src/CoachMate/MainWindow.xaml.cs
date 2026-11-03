@@ -9,6 +9,10 @@ using CoachMate.Net;
 using CoachMate.Ai;
 using CoachMate.Puzzles;
 using CoachMate.Rating;
+using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Imaging;
+using System.Text.Json;
+using WinRT.Interop;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
@@ -33,14 +37,16 @@ public sealed partial class MainWindow : Window
             [PieceTypes.Knight] = '♞', [PieceTypes.Pawn] = '♟',
         };
     private int _pieceStyle;
-    // Emoji font draws chess pieces shaded/3D and ignores Foreground (its own
-    // black/white fills); Symbol font draws wireframe and honors Foreground.
-    private (char Glyph, string? Font) PieceVisual(PieceTypes t, bool white) => _pieceStyle switch
-    {
-        1 => (white ? Outline[t] : Filled[t], "Segoe UI Emoji"),
-        2 => (Outline[t], "Segoe UI Symbol"),
-        _ => (white ? Outline[t] : Filled[t], null)
-    };
+    private readonly Pieces.PieceSetManager _setMgr = new();
+    private static string KeyOf(PieceTypes t, bool white) =>
+        (white ? "w" : "b") + t switch
+        {
+            PieceTypes.Pawn => "p", PieceTypes.Knight => "n", PieceTypes.Bishop => "b",
+            PieceTypes.Rook => "r", PieceTypes.Queen => "q", _ => "k"
+        };
+    // glyph+font+key; raster sets use the key, wireframe uses the glyph
+    private (char Glyph, string? Font, string Key) PieceVisual(PieceTypes t, bool white) =>
+        (Outline[t], "Segoe UI Symbol", KeyOf(t, white));
 
     // level -> approx. Elo for UCI_LimitStrength; 0 = Master (unlimited)
     private static readonly int[] LevelElos = { 0, 1900, 1400, 900 };
@@ -69,7 +75,13 @@ public sealed partial class MainWindow : Window
         CoachFeed.ItemsSource = _notes;
         BookList.ItemsSource = _book;
         RatingText.Text = $"You: {_rating.Display}";
-        PieceSel.SelectionChanged += (_, _) => { _pieceStyle = PieceSel.SelectedIndex < 0 ? 0 : PieceSel.SelectedIndex; Refresh(); };
+        BuildPieceCombo();
+        PieceSel.SelectionChanged += async (_, _) =>
+        {
+            if (PieceSel.SelectedItem?.ToString() == "Import set…") await ImportSetAsync();
+            else ApplyPieceStyle();
+        };
+        ApplyPieceStyle();
         PlaySel.SelectionChanged += async (_, _) => await NewGameAsync();
         ModeSel.SelectionChanged += async (_, _) => await ModeChangedAsync();
         PuzzleDbBtn.Click += async (_, _) => await DownloadDbAsync();
@@ -80,10 +92,89 @@ public sealed partial class MainWindow : Window
         NewBtn.Click += async (_, _) => await NewGameAsync();
         FlipBtn.Click += (_, _) => Board.Flip();
         HintBtn.Click += (_, _) => ShowHint();
+        AskBtn.Click += async (_, _) => await AskCoachChatAsync();
         ((FrameworkElement)Content).Loaded += OnLoaded;
         Closed += OnClosed;
         BuildPromoPanel();
         Refresh();
+    }
+
+    private List<string> _importedSets = new();
+
+    private void BuildPieceCombo(string? select = null)
+    {
+        _importedSets = _setMgr.ListSets().Where(s => s != "cburnett").ToList();
+        PieceSel.Items.Clear();
+        foreach (var i in new[] { "Classic", "3D", "Wireframe" }) PieceSel.Items.Add(i);
+        foreach (var s in _importedSets) PieceSel.Items.Add(s);
+        PieceSel.Items.Add("Import set…");
+        var saved = select ?? LoadSetting("pieceStyle") ?? "Classic";
+        var idx = PieceSel.Items.IndexOf(saved);
+        PieceSel.SelectedIndex = idx < 0 ? 0 : idx;
+    }
+
+    private void ApplyPieceStyle()
+    {
+        var sel = PieceSel.SelectedItem?.ToString() ?? "Classic";
+        if (sel == "Wireframe") Board.SetImages(null, false);
+        else
+        {
+            var set = sel is "Classic" or "3D" ? "cburnett" : sel;
+            try
+            {
+                var imgs = _setMgr.SetPaths(set).ToDictionary(
+                    kv => kv.Key, kv => (ImageSource)new BitmapImage(new Uri(kv.Value)));
+                Board.SetImages(imgs, sel == "3D");
+            }
+            catch { Board.SetImages(null, false); }
+        }
+        SaveSetting("pieceStyle", sel);
+        Refresh();
+    }
+
+    private async Task ImportSetAsync()
+    {
+        var picker = new Windows.Storage.Pickers.FolderPicker();
+        var hwnd = WindowNative.GetWindowHandle(this);
+        InitializeWithWindow.Initialize(picker, hwnd);
+        picker.FileTypeFilter.Add("*");
+        var folder = await picker.PickSingleFolderAsync();
+        if (folder is null) { BuildPieceCombo(); return; }
+        try
+        {
+            var name = _setMgr.ImportSet(folder.Path);
+            BuildPieceCombo(name);
+        }
+        catch (Exception ex)
+        {
+            _notes.Insert(0, new CoachNote { Title = "Import failed" });
+            _notes[0].Why.Add(ex.Message);
+            BuildPieceCombo();
+        }
+        ApplyPieceStyle();
+    }
+
+    private static string SettingsPath => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "CoachMate", "settings.json");
+
+    private static Dictionary<string, string> LoadAll()
+    {
+        try { return JsonSerializer.Deserialize<Dictionary<string, string>>(System.IO.File.ReadAllText(SettingsPath)) ?? new(); }
+        catch { return new(); }
+    }
+
+    private static string? LoadSetting(string k) => LoadAll().GetValueOrDefault(k);
+
+    private static void SaveSetting(string k, string v)
+    {
+        try
+        {
+            var d = LoadAll(); d[k] = v;
+            Directory.CreateDirectory(Path.GetDirectoryName(SettingsPath)!);
+            System.IO.File.WriteAllText(SettingsPath, JsonSerializer.Serialize(d));
+        }
+        catch { }
     }
 
     private void BuildPromoPanel()
@@ -91,9 +182,9 @@ public sealed partial class MainWindow : Window
         foreach (var (pt, ch) in new[] { (PieceTypes.Queen, 'q'), (PieceTypes.Rook, 'r'), (PieceTypes.Bishop, 'b'), (PieceTypes.Knight, 'n') })
         {
             var b = new Button { FontSize = 26, Padding = new Thickness(8) };
-            var (pg, pf) = PieceVisual(pt, _userIsWhite);
+            var (pg, pf, _) = PieceVisual(pt, _userIsWhite);
             b.Content = pg.ToString();
-            if (pf is not null) b.FontFamily = new Microsoft.UI.Xaml.Media.FontFamily(pf);
+            if (pf is not null) b.FontFamily = new FontFamily(pf);
             var p = ch;
             b.Click += (_, _) => { _promoChoice = p; FlyoutBase.GetAttachedFlyout(Board).Hide(); };
             PromoPanel.Children.Add(b);
@@ -122,19 +213,24 @@ public sealed partial class MainWindow : Window
     private async void OnClosed(object sender, WindowEventArgs e)
         => await _engine.DisposeAsync();
 
-    private async Task AskCoachAsync(CoachNote note)
+    private async Task AskCoachChatAsync()
     {
-        if (note.AiContext is null || _busy) return;
+        var q = AskBox.Text.Trim();
+        if (q.Length == 0) return;
         _ollama.Endpoint = EndpointBox.Text.Trim().TrimEnd('/');
         _ollama.Model = ModelBox.Text.Trim();
-        _notes.Insert(0, new CoachNote { Title = "AI Coach", IsEngine = true });
-        var text = await _ollama.ChatAsync(Narrator.System, note.AiContext);
-        _notes[0].Why.Add(text ?? "Coach unavailable — is Ollama running? (ollama serve / docker)");
-    }
-
-    private void AskCoach_Click(object sender, RoutedEventArgs e)
-    {
-        if (((Button)sender).DataContext is CoachNote n) _ = AskCoachAsync(n);
+        AskOut.Text = "Thinking...";
+        var ctx = $"Position (FEN): {_game.Fen}\nSide to move: {(_game.WhiteToMove ? "White" : "Black")}\n";
+        if (_cur?.Best is { } b)
+        {
+            var best = b.Pv.Length > 0 ? _game.UciLineToSan(new[] { b.Pv[0] }).FirstOrDefault() : null;
+            ctx += $"Engine eval: cp={b.Cp}{(b.Mate is { } m ? $" mate={m}" : "")} best={best}\n";
+        }
+        if (_notes.Count > 0 && _notes[0].Why.Count > 0)
+            ctx += $"Latest coach note: {string.Join(" | ", _notes[0].Why)}\n";
+        ctx += $"Question: {q}";
+        var text = await _ollama.ChatAsync(Narrator.System, ctx);
+        AskOut.Text = text ?? "Coach unavailable — is Ollama running? (docker / ollama serve)";
     }
 
     private async Task AnalyzeTurnAsync()
@@ -188,6 +284,13 @@ public sealed partial class MainWindow : Window
         if (_selected is null && from != _selected) _selected = from;
         var targets = _game.LegalTargets(from);
         var t = targets.Find(x => x.To == to);
+        // king dragged/clicked to its castle destination -> remap to the rook square
+        if (t.Uci is null && _game.Occupant(from) is { Type: PieceTypes.King })
+        {
+            var rookSq = to[0] switch { 'g' => "h" + to[1], 'c' => "a" + to[1], _ => null };
+            if (rookSq is not null && from[1] == to[1])
+                t = targets.Find(x => x.To == rookSq && x.Castle);
+        }
         if (t.Uci is null) { _selected = null; Board.ClearTargets(); Refresh(); return false; }
         if (PracticeMode) return await AttemptPuzzleMoveAsync(from, to);
         char? promo = null;
@@ -197,7 +300,7 @@ public sealed partial class MainWindow : Window
             if (promo is null) { Refresh(); return true; } // cancelled
         }
         var pre = _game.Clone();
-        var san = _game.TryMove(from, to, promo ?? 'q');
+        var san = promo is not null ? _game.TryMove(from, to, promo.Value) : _game.TryMove(from, to);
         _selected = null;
         Board.ClearTargets(); Board.ClearArrows();
         if (san is null) { Refresh(); return false; }
@@ -450,17 +553,23 @@ public sealed partial class MainWindow : Window
 
     private IEnumerable<(string To, bool Capture)> Targets(string sq)
     {
-        foreach (var t in _game.LegalTargets(sq)) yield return (t.To, t.Capture);
+        foreach (var t in _game.LegalTargets(sq))
+        {
+            yield return (t.To, t.Capture);
+            // castle targets point at the rook square; also dot the king's landing square
+            if (t.Castle && t.To.Length == 2)
+                yield return ((t.To[0] == 'h' ? "g" : "c") + t.To[1], false);
+        }
     }
 
     private void Refresh()
     {
-        var pieces = new Dictionary<string, (char, bool, string?)>();
+        var pieces = new Dictionary<string, (char, bool, string?, string)>();
         foreach (var (name, type, white) in _game.BoardSquares())
             if (type != PieceTypes.NoPieceType)
             {
-                var (g, f) = PieceVisual(type, white);
-                pieces[name] = (g, white, f);
+                var (g, f, k) = PieceVisual(type, white);
+                pieces[name] = (g, white, f, k);
             }
         Board.EnsureBuilt();
         Board.SetPosition(pieces);

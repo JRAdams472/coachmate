@@ -50,11 +50,7 @@
             </StackPanel>
             <StackPanel Orientation="Horizontal" Spacing="8">
                 <TextBlock Text="Pieces:" Foreground="#9e9a93" VerticalAlignment="Center"/>
-                <ComboBox x:Name="PieceSel" SelectedIndex="0" MinWidth="110">
-                    <ComboBoxItem Content="Classic"/>
-                    <ComboBoxItem Content="3D"/>
-                    <ComboBoxItem Content="Wireframe"/>
-                </ComboBox>
+                <ComboBox x:Name="PieceSel" MinWidth="110"/>
             </StackPanel>
             <StackPanel Orientation="Horizontal" Spacing="8">
                 <TextBlock Text="Opponent:" Foreground="#9e9a93" VerticalAlignment="Center"/>
@@ -67,40 +63,10 @@
                     <ComboBoxItem Content="Beginner ~900"/>
                 </ComboBox>
             </StackPanel>
-                        <StackPanel Orientation="Horizontal" Spacing="8">
+            <StackPanel Orientation="Horizontal" Spacing="8">
                 <Button x:Name="PuzzleDbBtn" Content="Get full puzzle DB (~700 MB)" FontSize="11"/>
             </StackPanel>
-            <StackPanel Orientation="Horizontal" Spacing="8">
-                <TextBlock Text="AI:" Foreground="#9e9a93" VerticalAlignment="Center"/>
-                <TextBox x:Name="EndpointBox" Text="http://localhost:11434" MinWidth="150" FontSize="11"/>
-                <TextBox x:Name="ModelBox" Text="qwen2.5:7b" MinWidth="90" FontSize="11"/>
-            </StackPanel>
-<Border Background="#262421" CornerRadius="8" Padding="10" Width="340">
-                <ScrollViewer MaxHeight="280">
-                    <ItemsControl x:Name="CoachFeed">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <StackPanel Margin="0,0,0,10">
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="{Binding Title}" FontWeight="Bold" Foreground="#e8e6e3"/>
-                                        <TextBlock Text="{Binding Symbol}" FontWeight="Bold" Margin="6,0,0,0"
-                                                   Foreground="{Binding SymbolBrush}"/>
-                                    </StackPanel>
-                                    <ItemsControl ItemsSource="{Binding Why}">
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate><TextBlock Text="{Binding}" Foreground="#e8e6e3" TextWrapping="Wrap"/></DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                    <TextBlock Text="{Binding Refutation}" Foreground="#9e9a93" FontSize="12" TextWrapping="Wrap"/>
-                                    <TextBlock Text="{Binding Line}" Foreground="#9e9a93" FontSize="12" TextWrapping="Wrap"/>
-                                    <Button Content="Ask coach" Click="AskCoach_Click" FontSize="11" Padding="8,2" Margin="0,3,0,0" HorizontalAlignment="Left"/>
-                                </StackPanel>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </ScrollViewer>
-            </Border>
-                    <Border Background="#262421" CornerRadius="8" Padding="10" Width="340">
+            <Border Background="#262421" CornerRadius="8" Padding="10" Width="340">
                 <StackPanel Spacing="4">
                     <TextBlock Text="Cloud DB" FontWeight="Bold" Foreground="#e8e6e3"/>
                     <ItemsControl x:Name="BookList">
@@ -124,6 +90,46 @@
                     <TextBlock x:Name="BookStatus" Text="—" Foreground="#9e9a93" FontSize="12"/>
                 </StackPanel>
             </Border>
-</StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="AI:" Foreground="#9e9a93" VerticalAlignment="Center"/>
+                <TextBox x:Name="EndpointBox" Text="http://localhost:11434" MinWidth="150" FontSize="11"/>
+                <TextBox x:Name="ModelBox" Text="qwen2.5:7b" MinWidth="90" FontSize="11"/>
+            </StackPanel>
+            <Border Background="#262421" CornerRadius="8" Padding="10" Width="340">
+                <StackPanel Spacing="6">
+                    <TextBlock Text="Ask the coach" FontWeight="Bold" Foreground="#e8e6e3"/>
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBox x:Name="AskBox" PlaceholderText="e.g. why is my knight bad here?" Width="260" FontSize="12"/>
+                        <Button x:Name="AskBtn" Content="Ask"/>
+                    </StackPanel>
+                    <TextBlock x:Name="AskOut" Text="Answers appear here — grounded in the current position and engine analysis."
+                               Foreground="#e8e6e3" FontSize="12" TextWrapping="Wrap" IsTextSelectionEnabled="True"/>
+                </StackPanel>
+            </Border>
+            <Border Background="#262421" CornerRadius="8" Padding="10" Width="340">
+                <ScrollViewer MaxHeight="200">
+                    <ItemsControl x:Name="CoachFeed">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Margin="0,0,0,10">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding Title}" FontWeight="Bold" Foreground="#e8e6e3"/>
+                                        <TextBlock Text="{Binding Symbol}" FontWeight="Bold" Margin="6,0,0,0"
+                                                   Foreground="{Binding SymbolBrush}"/>
+                                    </StackPanel>
+                                    <ItemsControl ItemsSource="{Binding Why}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate><TextBlock Text="{Binding}" Foreground="#e8e6e3" TextWrapping="Wrap"/></DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <TextBlock Text="{Binding Refutation}" Foreground="#9e9a93" FontSize="12" TextWrapping="Wrap"/>
+                                    <TextBlock Text="{Binding Line}" Foreground="#9e9a93" FontSize="12" TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Border>
+        </StackPanel>
     </Grid>
 </Window>

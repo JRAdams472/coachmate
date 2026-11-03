@@ -66,3 +66,15 @@ public class GameStateTests
         Assert.True(g.IsGameOver);
     }
 }
+
+public class TryMovePromoContract
+{
+    [Fact]
+    public void TryMove_PromoArgOnNormalMove_ReturnsNull()
+    {
+        // AttemptMoveAsync relies on this: promo must be null for non-promotion moves
+        var g = new CoachMate.Chess.GameState();
+        Assert.Null(g.TryMove("e2", "e4", 'q'));
+        Assert.Equal("e4", g.TryMove("e2", "e4"));
+    }
+}
