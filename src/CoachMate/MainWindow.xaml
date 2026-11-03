@@ -101,6 +101,17 @@
                 </StackPanel>
                 <StackPanel Grid.Column="1" Spacing="10">
                 <Border Background="#262421" CornerRadius="8" Padding="10" Width="340">
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Ask the coach" FontWeight="Bold" Foreground="#e8e6e3"/>
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBox x:Name="AskBox" PlaceholderText="e.g. why is my knight bad here?" Width="260" FontSize="12"/>
+                            <Button x:Name="AskBtn" Content="Ask"/>
+                        </StackPanel>
+                        <TextBlock x:Name="AskOut" Text="Answers appear here — grounded in the current position and engine analysis."
+                                   Foreground="#e8e6e3" FontSize="12" TextWrapping="Wrap" IsTextSelectionEnabled="True"/>
+                    </StackPanel>
+                </Border>
+                <Border Background="#262421" CornerRadius="8" Padding="10" Width="340">
                     <StackPanel Spacing="4">
                         <TextBlock Text="Cloud DB" FontWeight="Bold" Foreground="#e8e6e3"/>
                         <ItemsControl x:Name="BookList">
@@ -122,17 +133,6 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
                         <TextBlock x:Name="BookStatus" Text="—" Foreground="#9e9a93" FontSize="12"/>
-                    </StackPanel>
-                </Border>
-                <Border Background="#262421" CornerRadius="8" Padding="10" Width="340">
-                    <StackPanel Spacing="6">
-                        <TextBlock Text="Ask the coach" FontWeight="Bold" Foreground="#e8e6e3"/>
-                        <StackPanel Orientation="Horizontal" Spacing="6">
-                            <TextBox x:Name="AskBox" PlaceholderText="e.g. why is my knight bad here?" Width="260" FontSize="12"/>
-                            <Button x:Name="AskBtn" Content="Ask"/>
-                        </StackPanel>
-                        <TextBlock x:Name="AskOut" Text="Answers appear here — grounded in the current position and engine analysis."
-                                   Foreground="#e8e6e3" FontSize="12" TextWrapping="Wrap" IsTextSelectionEnabled="True"/>
                     </StackPanel>
                 </Border>
                 <Border Background="#262421" CornerRadius="8" Padding="10" Width="340">
