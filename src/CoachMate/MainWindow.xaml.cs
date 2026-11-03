@@ -82,6 +82,21 @@ public sealed partial class MainWindow : Window
         RatingText.Text = $"You: {_rating.Display}";
         _ollamaEndpoint = LoadSetting("ollamaEndpoint") ?? _ollamaEndpoint;
         _ollamaModel = LoadSetting("ollamaModel") ?? _ollamaModel;
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(LogPath)!);
+            if (System.IO.File.Exists(LogPath) && new FileInfo(LogPath).Length > 1_000_000)
+                System.IO.File.WriteAllText(LogPath, "");
+        }
+        catch { }
+        UciEngine.DebugLogPath = LogPath;
+        if (int.TryParse(LoadSetting("level"), out var li) && li is >= 0 and <= 3)
+        {
+            _levelIndex = li;
+            new[] { LvlMaster, LvlClub, LvlCasual, LvlBeginner }[_levelIndex].IsChecked = true;
+        }
+        if (LoadSetting("playAs") == "black") { _playAsBlack = true; PlayBlack.IsChecked = true; }
+        if (LoadSetting("mode") == "practice") { _practice = true; ModePractice.IsChecked = true; }
         BuildPiecesMenu();
         ApplyPieceStyle();
         Board.SquareClicked += sq => _ = HandleSquareAsync(sq);
@@ -94,25 +109,31 @@ public sealed partial class MainWindow : Window
         AskBtn.Click += async (_, _) => await AskCoachChatAsync();
         FileNew.Click += async (_, _) => await NewGameAsync();
         FileSave.Click += async (_, _) => await SaveGameAsync();
+        FileLog.Click += (_, _) => System.Diagnostics.Process.Start(
+            "explorer.exe", Path.GetDirectoryName(LogPath)!);
         FileExit.Click += (_, _) => Close();
         ModePlay.Click += async (_, _) =>
         {
             CheckRadio(ModePlay, ModePlay, ModePractice);
+            SaveSetting("mode", "play");
             if (_practice) { _practice = false; await NewGameAsync(); }
         };
         ModePractice.Click += async (_, _) =>
         {
             CheckRadio(ModePractice, ModePlay, ModePractice);
+            SaveSetting("mode", "practice");
             if (!_practice) { _practice = true; _puzzleStore.Load(); await NextPuzzleAsync(); }
         };
         PlayWhite.Click += async (_, _) =>
         {
             CheckRadio(PlayWhite, PlayWhite, PlayBlack);
+            SaveSetting("playAs", "white");
             if (_playAsBlack) { _playAsBlack = false; await NewGameAsync(); }
         };
         PlayBlack.Click += async (_, _) =>
         {
             CheckRadio(PlayBlack, PlayWhite, PlayBlack);
+            SaveSetting("playAs", "black");
             if (!_playAsBlack) { _playAsBlack = true; await NewGameAsync(); }
         };
         LvlMaster.Click += (_, _) => SetLevel(0, LvlMaster);
@@ -122,6 +143,8 @@ public sealed partial class MainWindow : Window
         PuzzleDbItem.Click += async (_, _) => await DownloadDbAsync();
         AiSettingsItem.Click += async (_, _) => await AiSettingsAsync();
         RatingItem.Click += async (_, _) => await MyRatingAsync();
+        BookHeader.Click += (_, _) => SetCloudDbCollapsed(!_cloudDbCollapsed);
+        SetCloudDbCollapsed(LoadSetting("cloudDbCollapsed") == "1");
         ((FrameworkElement)Content).Loaded += OnLoaded;
         Closed += OnClosed;
         BuildPromoPanel();
@@ -130,6 +153,15 @@ public sealed partial class MainWindow : Window
 
     private List<string> _importedSets = new();
     private readonly List<ToggleMenuFlyoutItem> _pieceItems = new();
+    private bool _cloudDbCollapsed;
+
+    private void SetCloudDbCollapsed(bool collapsed)
+    {
+        _cloudDbCollapsed = collapsed;
+        BookBody.Visibility = collapsed ? Visibility.Collapsed : Visibility.Visible;
+        BookChevron.Text = collapsed ? "▸" : "▾";
+        SaveSetting("cloudDbCollapsed", collapsed ? "1" : "0");
+    }
 
     private static void CheckRadio(ToggleMenuFlyoutItem picked, params ToggleMenuFlyoutItem[] group)
     {
@@ -140,6 +172,7 @@ public sealed partial class MainWindow : Window
     {
         _levelIndex = idx;
         CheckRadio(item, LvlMaster, LvlClub, LvlCasual, LvlBeginner);
+        SaveSetting("level", idx.ToString());
     }
 
     private void BuildPiecesMenu(string? select = null)
@@ -268,6 +301,15 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    private static readonly string LogPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "CoachMate", "coach.log");
+
+    private static void Log(string m)
+    {
+        try { System.IO.File.AppendAllLines(LogPath, new[] { $"{DateTime.Now:HH:mm:ss.fff} {m}" }); } catch { }
+    }
+
     private static string SettingsPath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "CoachMate", "settings.json");
@@ -336,6 +378,9 @@ public sealed partial class MainWindow : Window
     {
         Status.Text = "Engine: starting...";
         await _engine.StartAsync();
+        // restore persisted mode/side: puzzle mode or play-as-black need setup
+        if (_practice) { _puzzleStore.Load(); await NextPuzzleAsync(); return; }
+        if (_playAsBlack) { await NewGameAsync(); return; }
         _ = AnalyzeTurnAsync();
     }
 
@@ -483,13 +528,24 @@ public sealed partial class MainWindow : Window
         if (lvl > 0)
             reply = (await _engine.AnalyzeAsync(_game.Fen, 12, elo: lvl)).BestMove;
 
+        Log($"reply: fen={_game.Fen} best={reply ?? "null"}");
         if (reply is not null and not "(none)")
         {
-            var c = _game.Clone();
-            var rs = c.TryUci(reply) ?? reply;
-            _game.TryUci(reply);
-            _lastMove = (reply[..2], reply.Substring(2, 2));
-            _notes.Insert(0, new CoachNote { Title = $"» {MoveNum()}… {rs}", IsEngine = true });
+            var rs = _game.TryUci(reply);
+            if (rs is null)
+            {
+                Log($"REPLY DROPPED: '{reply}' not legal at {_game.Fen}");
+                _notes.Insert(0, new CoachNote
+                {
+                    Title = $"⚠ engine tried '{reply}'",
+                    Why = { "Move rejected — details in coach.log (File ▸ Open log folder)." }
+                });
+            }
+            else
+            {
+                _lastMove = (reply[..2], reply.Substring(2, 2));
+                _notes.Insert(0, new CoachNote { Title = $"» {MoveNum()}… {rs}", IsEngine = true });
+            }
         }
         _busy = false;
         Refresh();

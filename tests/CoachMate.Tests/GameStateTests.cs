@@ -96,4 +96,22 @@ public class CastleUci
         var g = new CoachMate.Chess.GameState("r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R w KQkq - 0 1");
         Assert.Equal("O-O-O", g.TryMove("e1", "c1"));
     }
+
+    [Fact]
+    public void TryUci_KingSidestepToCFile_NotCastleRemapped()
+    {
+        // regression: same-rank king steps to c/g files were remapped to a/h
+        // as if castling, dropping the move — engine replies like d6c6 vanished
+        var g = new CoachMate.Chess.GameState("8/8/3k4/8/8/8/4K3/8 b - - 0 1");
+        Assert.Equal("Kc6", g.TryUci("d6c6"));
+    }
+
+    [Fact]
+    public void TryUci_KingSidestepToGFile_NotCastleRemapped()
+    {
+        // worse variant: f6g6 remapped to f6h6 — h6 is legal, so the WRONG
+        // move was silently played
+        var g = new CoachMate.Chess.GameState("8/8/5k2/8/8/8/4K3/8 b - - 0 1");
+        Assert.Equal("Kg6", g.TryUci("f6g6"));
+    }
 }
