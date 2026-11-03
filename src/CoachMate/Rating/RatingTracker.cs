@@ -50,5 +50,14 @@ public sealed class RatingTracker
         Save();
     }
 
+    /// <summary>Self-set estimate — resets to max uncertainty so finished games recalibrate fast.</summary>
+    public void SetEstimate(double r)
+    {
+        R = Math.Clamp(r, 300, 2500);
+        Rd = 350;
+        Games = 0;
+        Save();
+    }
+
     public string Display => $"~{(int)Math.Round(R)} (±{(int)Math.Round(Rd)})";
 }

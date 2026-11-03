@@ -44,6 +44,7 @@
                 <MenuFlyoutSeparator/>
                 <MenuFlyoutItem x:Name="PuzzleDbItem" Text="Get full puzzle DB (~700 MB)"/>
                 <MenuFlyoutItem x:Name="AiSettingsItem" Text="AI settings…"/>
+                <MenuFlyoutItem x:Name="RatingItem" Text="Your rating…"/>
             </muxc:MenuBarItem>
         </muxc:MenuBar>
         <Grid Grid.Row="1" Padding="20">
@@ -79,6 +80,11 @@
                                Foreground="#e8e6e3" HorizontalAlignment="Right"/>
                 </Grid>
                 <TextBlock x:Name="RatingText" Text="You: ~1500" Foreground="#81b64c" FontWeight="Bold"/>
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Text="Phase:" Foreground="#9e9a93" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="PhaseText" Text="Opening" FontWeight="Bold" Foreground="#e8e6e3"/>
+                </StackPanel>
+                <TextBlock x:Name="GoalText" TextWrapping="Wrap" Width="340" FontSize="12" Foreground="#9e9a93"/>
                 <Border Background="#262421" CornerRadius="8" Padding="10" Width="340">
                     <StackPanel Spacing="4">
                         <TextBlock Text="Cloud DB" FontWeight="Bold" Foreground="#e8e6e3"/>

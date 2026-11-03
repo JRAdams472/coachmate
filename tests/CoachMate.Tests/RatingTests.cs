@@ -48,4 +48,15 @@ public class RatingTests
         for (var i = 0; i < 50; i++) t.Apply(3000, 60, 0);
         Assert.True(t.R > 400 && t.Rd >= 30 && t.Rd <= 350);
     }
+
+    [Fact]
+    public void SetEstimate_ResetsToHighUncertainty()
+    {
+        var t = new RatingTracker();
+        t.Apply(1400, 60, 1.0);
+        t.SetEstimate(400);
+        Assert.Equal(400, t.R);
+        Assert.Equal(350, t.Rd);
+        Assert.Equal(0, t.Games);
+    }
 }
