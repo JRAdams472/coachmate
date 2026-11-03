@@ -127,6 +127,78 @@ public sealed class GameState
         return san;
     }
 
+    public GameState Clone() => new(Fen);
+
+    /// <summary>Occupant of a square, or null.</summary>
+    public (PieceTypes Type, bool IsWhite)? Occupant(string name)
+    {
+        var p = _game.Pos.GetPiece(Sq(name));
+        return p.Type() != PieceTypes.NoPieceType ? (p.Type(), p.IsWhite) : null;
+    }
+
+    /// <summary>Own pieces attacked by the enemy; undefended = own side does not cover it.</summary>
+    public List<(string Sq, PieceTypes Type)> Hanging(bool white)
+    {
+        var res = new List<(string, PieceTypes)>();
+        foreach (var (name, type, isW) in BoardSquares())
+        {
+            if (type == PieceTypes.NoPieceType || isW != white || type == PieceTypes.King) continue;
+            var attacked = white ? _game.Pos.IsAttacked(Sq(name), Player.Black) : _game.Pos.IsAttacked(Sq(name), Player.White);
+            if (!attacked) continue;
+            var defended = white ? _game.Pos.IsAttacked(Sq(name), Player.White) : _game.Pos.IsAttacked(Sq(name), Player.Black);
+            if (!defended) res.Add((name, type));
+        }
+        return res;
+    }
+
+    /// <summary>Enemy pieces of <paramref name="whiteAttacker"/> attacked by that side.</summary>
+    public List<(string Sq, PieceTypes Type)> AttackedEnemyPieces(bool whiteAttacker)
+    {
+        var res = new List<(string, PieceTypes)>();
+        foreach (var (name, type, isW) in BoardSquares())
+        {
+            if (type == PieceTypes.NoPieceType || isW == whiteAttacker) continue;
+            var attacked = whiteAttacker ? _game.Pos.IsAttacked(Sq(name), Player.White) : _game.Pos.IsAttacked(Sq(name), Player.Black);
+            if (attacked) res.Add((name, type));
+        }
+        return res;
+    }
+
+    /// <summary>Count of enemy-attacked squares inside the 3x3 zone around the king.</summary>
+    public int KingZonePressure(bool whiteKing)
+    {
+        var k = KingSquare(whiteKing);
+        if (k is null) return 0;
+        var f0 = k[0] - 97; var r0 = k[1] - 49;
+        var n = 0;
+        for (var df = -1; df <= 1; df++)
+        for (var dr = -1; dr <= 1; dr++)
+        {
+            var f = f0 + df; var r = r0 + dr;
+            if (f < 0 || f > 7 || r < 0 || r > 7) continue;
+            var sq = $"{(char)(97 + f)}{(char)(49 + r)}";
+            var attacked = whiteKing ? _game.Pos.IsAttacked(Sq(sq), Player.Black) : _game.Pos.IsAttacked(Sq(sq), Player.White);
+            if (attacked) n++;
+        }
+        return n;
+    }
+
+    public int Material(bool white) =>
+        BoardSquares().Where(b => b.IsWhite == white).Sum(b => PieceValues.Of(b.Type));
+
+    /// <summary>Squares the side to move could reach that are NOT enemy-attacked (safe-ish).</summary>
+    public bool HasSafeEscape(string name, bool white)
+    {
+        foreach (var t in LegalTargets(name))
+        {
+            var c = Clone();
+            c.TryUci(t.Uci);
+            var stillAttacked = white ? c.IsAttackedByBlack(t.To) : c.IsAttackedByWhite(t.To);
+            if (!stillAttacked) return true;
+        }
+        return false;
+    }
+
     public string San(Move m) =>
         MoveNotation.Create(_game.Pos).ToNotation(MoveNotations.San).Convert(m);
 
@@ -142,3 +214,19 @@ public sealed class GameState
         return s;
     }
 }
+
+public static class PieceValues
+{
+    public static int Of(PieceTypes t) => t switch
+    {
+        PieceTypes.Pawn => 1, PieceTypes.Knight => 3, PieceTypes.Bishop => 3,
+        PieceTypes.Rook => 5, PieceTypes.Queen => 9, _ => 0
+    };
+    public static string Name(PieceTypes t) => t switch
+    {
+        PieceTypes.Pawn => "pawn", PieceTypes.Knight => "knight", PieceTypes.Bishop => "bishop",
+        PieceTypes.Rook => "rook", PieceTypes.Queen => "queen", PieceTypes.King => "king", _ => "piece"
+    };
+}
+
+

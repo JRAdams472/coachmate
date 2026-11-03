@@ -39,6 +39,30 @@
                     <ComboBoxItem Content="Beginner"/>
                 </ComboBox>
             </StackPanel>
+            <Border Background="#262421" CornerRadius="8" Padding="10" Width="340">
+                <ScrollViewer MaxHeight="300">
+                    <ItemsControl x:Name="CoachFeed">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Margin="0,0,0,10">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding Title}" FontWeight="Bold" Foreground="#e8e6e3"/>
+                                        <TextBlock Text="{Binding Symbol}" FontWeight="Bold" Margin="6,0,0,0"
+                                                   Foreground="{Binding SymbolBrush}"/>
+                                    </StackPanel>
+                                    <ItemsControl ItemsSource="{Binding Why}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate><TextBlock Text="{Binding}" Foreground="#e8e6e3" TextWrapping="Wrap"/></DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <TextBlock Text="{Binding Refutation}" Foreground="#9e9a93" FontSize="12" TextWrapping="Wrap"/>
+                                    <TextBlock Text="{Binding Line}" Foreground="#9e9a93" FontSize="12" TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Border>
         </StackPanel>
     </Grid>
 </Window>
