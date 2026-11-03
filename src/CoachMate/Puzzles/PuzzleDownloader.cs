@@ -26,7 +26,7 @@ public sealed class PuzzleDownloader
                 var f = line.Split(',');
                 if (f.Length < 8) continue;
                 // compact: id,fen,moves,rating,,,,themes
-                await w.WriteLineAsync($"{f[0]},{f[1]},{f[2]},{f[3]},,,,{f[7]}");
+                await w.WriteLineAsync($"{f[0]},{f[1]},{f[2]},{f[3]},,,,{f[7]},e");
                 written += line.Length;
                 if (got % (64 << 20) < 1000) progress?.Report((got, total));
             }
