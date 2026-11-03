@@ -238,7 +238,18 @@ public sealed partial class MainWindow : Window
         _ollama.Endpoint = EndpointBox.Text.Trim().TrimEnd('/');
         _ollama.Model = ModelBox.Text.Trim();
         AskOut.Text = "Thinking...";
-        var ctx = $"Position (FEN): {_game.Fen}\nSide to move: {(_game.WhiteToMove ? "White" : "Black")}\n";
+        var ctx = $"Game so far (PGN): {_game.Pgn()}\n";
+        if (_notes.Count > 0)
+        {
+            ctx += "Coach notes this game (oldest first):\n";
+            foreach (var n in _notes.Reverse().Take(40))
+            {
+                var detail = n.IsEngine ? "" : $" — {string.Join(" ", n.Why)}";
+                var reff = n.Refutation is { } r ? $" {r}" : "";
+                ctx += $"  {n.Title} {n.Symbol}{detail}{reff}\n";
+            }
+        }
+        ctx += $"Position (FEN): {_game.Fen}\nSide to move: {(_game.WhiteToMove ? "White" : "Black")}\n";
         if (_cur?.Best is { } b)
         {
             var best = b.Pv.Length > 0 ? _game.UciLineToSan(new[] { b.Pv[0] }).FirstOrDefault() : null;
