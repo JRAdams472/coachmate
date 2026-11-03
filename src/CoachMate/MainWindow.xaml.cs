@@ -287,7 +287,7 @@ public sealed partial class MainWindow : Window
             if (promo is null) { Refresh(); return true; } // cancelled
         }
         var pre = _game.Clone();
-        var san = _game.TryMove(from, to, promo ?? 'q');
+        var san = promo is not null ? _game.TryMove(from, to, promo.Value) : _game.TryMove(from, to);
         _selected = null;
         Board.ClearTargets(); Board.ClearArrows();
         if (san is null) { Refresh(); return false; }
