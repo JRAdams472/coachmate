@@ -27,7 +27,8 @@ public sealed class OllamaClient
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
             var res = await _http.PostAsync($"{Endpoint}/api/chat",
                 new StringContent(body, Encoding.UTF8, "application/json"), cts.Token);
-            res.EnsureSuccessStatusCode();
+            if (!res.IsSuccessStatusCode)
+                return $"Ollama error {(int)res.StatusCode}: {await res.Content.ReadAsStringAsync()}";
             using var doc = JsonDocument.Parse(await res.Content.ReadAsStringAsync());
             return doc.RootElement.GetProperty("message").GetProperty("content").GetString()?.Trim();
         }
