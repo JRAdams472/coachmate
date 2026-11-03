@@ -90,6 +90,13 @@ public sealed partial class MainWindow : Window
         }
         catch { }
         UciEngine.DebugLogPath = LogPath;
+        if (int.TryParse(LoadSetting("level"), out var li) && li is >= 0 and <= 3)
+        {
+            _levelIndex = li;
+            new[] { LvlMaster, LvlClub, LvlCasual, LvlBeginner }[_levelIndex].IsChecked = true;
+        }
+        if (LoadSetting("playAs") == "black") { _playAsBlack = true; PlayBlack.IsChecked = true; }
+        if (LoadSetting("mode") == "practice") { _practice = true; ModePractice.IsChecked = true; }
         BuildPiecesMenu();
         ApplyPieceStyle();
         Board.SquareClicked += sq => _ = HandleSquareAsync(sq);
@@ -108,21 +115,25 @@ public sealed partial class MainWindow : Window
         ModePlay.Click += async (_, _) =>
         {
             CheckRadio(ModePlay, ModePlay, ModePractice);
+            SaveSetting("mode", "play");
             if (_practice) { _practice = false; await NewGameAsync(); }
         };
         ModePractice.Click += async (_, _) =>
         {
             CheckRadio(ModePractice, ModePlay, ModePractice);
+            SaveSetting("mode", "practice");
             if (!_practice) { _practice = true; _puzzleStore.Load(); await NextPuzzleAsync(); }
         };
         PlayWhite.Click += async (_, _) =>
         {
             CheckRadio(PlayWhite, PlayWhite, PlayBlack);
+            SaveSetting("playAs", "white");
             if (_playAsBlack) { _playAsBlack = false; await NewGameAsync(); }
         };
         PlayBlack.Click += async (_, _) =>
         {
             CheckRadio(PlayBlack, PlayWhite, PlayBlack);
+            SaveSetting("playAs", "black");
             if (!_playAsBlack) { _playAsBlack = true; await NewGameAsync(); }
         };
         LvlMaster.Click += (_, _) => SetLevel(0, LvlMaster);
@@ -161,6 +172,7 @@ public sealed partial class MainWindow : Window
     {
         _levelIndex = idx;
         CheckRadio(item, LvlMaster, LvlClub, LvlCasual, LvlBeginner);
+        SaveSetting("level", idx.ToString());
     }
 
     private void BuildPiecesMenu(string? select = null)
@@ -366,6 +378,9 @@ public sealed partial class MainWindow : Window
     {
         Status.Text = "Engine: starting...";
         await _engine.StartAsync();
+        // restore persisted mode/side: puzzle mode or play-as-black need setup
+        if (_practice) { _puzzleStore.Load(); await NextPuzzleAsync(); return; }
+        if (_playAsBlack) { await NewGameAsync(); return; }
         _ = AnalyzeTurnAsync();
     }
 
