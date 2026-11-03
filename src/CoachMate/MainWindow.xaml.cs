@@ -121,6 +121,7 @@ public sealed partial class MainWindow : Window
         LvlBeginner.Click += (_, _) => SetLevel(3, LvlBeginner);
         PuzzleDbItem.Click += async (_, _) => await DownloadDbAsync();
         AiSettingsItem.Click += async (_, _) => await AiSettingsAsync();
+        RatingItem.Click += async (_, _) => await MyRatingAsync();
         ((FrameworkElement)Content).Loaded += OnLoaded;
         Closed += OnClosed;
         BuildPromoPanel();
@@ -232,6 +233,38 @@ public sealed partial class MainWindow : Window
             _ollamaModel = model.Text.Trim();
             SaveSetting("ollamaEndpoint", _ollamaEndpoint);
             SaveSetting("ollamaModel", _ollamaModel);
+        }
+    }
+
+    private async Task MyRatingAsync()
+    {
+        var slider = new Slider
+        {
+            Minimum = 300, Maximum = 2500, StepFrequency = 50,
+            Value = Math.Clamp(_rating.R, 300, 2500), MinWidth = 320
+        };
+        var val = new TextBlock { Text = $"Your estimate: {(int)slider.Value}" };
+        slider.ValueChanged += (_, e) => val.Text = $"Your estimate: {(int)e.NewValue}";
+        var panel = new StackPanel { Spacing = 6 };
+        panel.Children.Add(val);
+        panel.Children.Add(slider);
+        panel.Children.Add(new TextBlock
+        {
+            Text = "A self-estimate resets the tracker to max uncertainty — finished games pull it toward your real level. For reference: the Beginner opponent is ~900.",
+            TextWrapping = TextWrapping.Wrap, FontSize = 12, Foreground = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(255, 158, 154, 147))
+        });
+        var dlg = new ContentDialog
+        {
+            Title = "Your rating",
+            Content = panel,
+            PrimaryButtonText = "Save",
+            CloseButtonText = "Cancel",
+            XamlRoot = ((FrameworkElement)Content).XamlRoot
+        };
+        if (await dlg.ShowAsync() == ContentDialogResult.Primary)
+        {
+            _rating.SetEstimate(slider.Value);
+            RatingText.Text = $"You: {_rating.Display}";
         }
     }
 
@@ -673,6 +706,9 @@ public sealed partial class MainWindow : Window
         Board.EnsureBuilt();
         Board.SetPosition(pieces);
         Board.ClearMarks();
+        var phase = GamePhase.Classify(_game);
+        PhaseText.Text = GamePhase.Title(phase);
+        GoalText.Text = GamePhase.Goal(phase);
         if (_lastMove is { } lm) { Board.Mark(lm.From, 0); Board.Mark(lm.To, 0); }
         if (_selected is not null) Board.Mark(_selected, 1);
         if (_game.InCheck)
