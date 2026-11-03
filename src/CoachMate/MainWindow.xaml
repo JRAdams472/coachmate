@@ -58,6 +58,8 @@
             </StackPanel>
             <StackPanel Orientation="Horizontal" Spacing="8">
                 <TextBlock Text="Opponent:" Foreground="#9e9a93" VerticalAlignment="Center"/>
+                <TextBlock x:Name="RatingText" Text="You: ~1500" Foreground="#81b64c"
+                           VerticalAlignment="Center" FontWeight="Bold"/>
                 <ComboBox x:Name="LevelSel" SelectedIndex="2" MinWidth="110">
                     <ComboBoxItem Content="Master"/>
                     <ComboBoxItem Content="Club ~1900"/>
