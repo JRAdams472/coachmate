@@ -82,6 +82,30 @@
                     </ItemsControl>
                 </ScrollViewer>
             </Border>
-        </StackPanel>
+                    <Border Background="#262421" CornerRadius="8" Padding="10" Width="340">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="Cloud DB" FontWeight="Bold" Foreground="#e8e6e3"/>
+                    <ItemsControl x:Name="BookList">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="50"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="70"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{Binding San}" FontWeight="Bold" Foreground="#e8e6e3"/>
+                                    <Grid Grid.Column="1" Height="8" Background="#333" CornerRadius="3" VerticalAlignment="Center">
+                                        <Border Width="{Binding BarWidth}" Background="#81b64c" CornerRadius="3" HorizontalAlignment="Left"/>
+                                    </Grid>
+                                    <TextBlock Grid.Column="2" Text="{Binding Winrate}" Foreground="#9e9a93" FontSize="12" HorizontalAlignment="Right"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <TextBlock x:Name="BookStatus" Text="—" Foreground="#9e9a93" FontSize="12"/>
+                </StackPanel>
+            </Border>
+</StackPanel>
     </Grid>
 </Window>

@@ -5,6 +5,7 @@ using CoachMate.Chess;
 using CoachMate.Coach;
 using CoachMate.Engine;
 using CoachMate.Models;
+using CoachMate.Net;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
@@ -46,11 +47,14 @@ public sealed partial class MainWindow : Window
     private bool _busy;
     private SearchResult? _cur;
     private bool _userIsWhite = true;
+    private readonly CloudDbClient _cloud = new();
+    private readonly ObservableCollection<BookRow> _book = new();
 
     public MainWindow()
     {
         InitializeComponent();
         CoachFeed.ItemsSource = _notes;
+        BookList.ItemsSource = _book;
         PieceSel.SelectionChanged += (_, _) => { _pieceStyle = PieceSel.SelectedIndex < 0 ? 0 : PieceSel.SelectedIndex; Refresh(); };
         PlaySel.SelectionChanged += async (_, _) => await NewGameAsync();
         Board.SquareClicked += sq => _ = HandleSquareAsync(sq);
@@ -106,7 +110,24 @@ public sealed partial class MainWindow : Window
         _cur = await _engine.AnalyzeAsync(_game.Fen, 14);
         _busy = false;
         UpdateEval(_cur);
+        _ = RenderBookAsync();
         Refresh();
+    }
+
+    private async Task RenderBookAsync()
+    {
+        var rows = await _cloud.QueryAsync(_game.Fen);
+        _book.Clear();
+        if (rows is null) { BookStatus.Text = "unavailable (offline?)"; return; }
+        if (rows.Count == 0) { BookStatus.Text = "no data — out of book"; return; }
+        var c = _game.Clone();
+        foreach (var r in rows)
+        {
+            var san = c.TryUci(r.Uci);
+            if (san is not null) c.Undo();
+            _book.Add(new BookRow { San = san ?? r.Uci, Winrate = $"{r.Winrate:0.0}% {r.Note}", BarWidth = r.Winrate * 1.6 });
+        }
+        BookStatus.Text = "win% for side to move";
     }
 
     private async Task HandleSquareAsync(string sq)
