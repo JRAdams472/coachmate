@@ -1,7 +1,10 @@
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Threading.Tasks;
 using CoachMate.Chess;
+using CoachMate.Coach;
 using CoachMate.Engine;
+using CoachMate.Models;
 using Microsoft.UI.Xaml;
 using Rudzoft.ChessLib.Types;
 
@@ -23,24 +26,22 @@ public sealed partial class MainWindow : Window
             [PieceTypes.Rook] = '♜', [PieceTypes.Bishop] = '♝',
             [PieceTypes.Knight] = '♞', [PieceTypes.Pawn] = '♟',
         };
-    // 0 = Classic (white outline / black filled), 1 = 3D (all filled), 2 = Wireframe (all outline)
     private int _pieceStyle;
     private char Glyph(PieceTypes t, bool white) => _pieceStyle switch
     {
-        1 => Filled[t],
-        2 => Outline[t],
-        _ => white ? Outline[t] : Filled[t]
+        1 => Filled[t], 2 => Outline[t], _ => white ? Outline[t] : Filled[t]
     };
 
-    // level -> (skill, depth); null = use the full-strength bestmove directly
     private static readonly (int Skill, int Depth)?[] Levels =
         { null, (12, 10), (6, 6), (0, 3) };
 
     private readonly GameState _game = new();
     private readonly UciEngine _engine = new();
+    private readonly ObservableCollection<CoachNote> _notes = new();
     private string? _selected;
     private (string From, string To)? _lastMove;
     private bool _busy;
+    private SearchResult? _cur;      // full-strength analysis of the user-to-move position
 
     public MainWindow()
     {
@@ -48,8 +49,9 @@ public sealed partial class MainWindow : Window
         PieceSel.SelectionChanged += (_, _) => { _pieceStyle = PieceSel.SelectedIndex < 0 ? 0 : PieceSel.SelectedIndex; Refresh(); };
         Board.SquareClicked += OnSquareClicked;
         Board.PositionRendered += Refresh;
-        ((Microsoft.UI.Xaml.FrameworkElement)Content).Loaded += OnLoaded;
+        ((FrameworkElement)Content).Loaded += OnLoaded;
         Closed += OnClosed;
+        CoachFeed.ItemsSource = _notes;
         Refresh();
     }
 
@@ -57,29 +59,41 @@ public sealed partial class MainWindow : Window
     {
         Status.Text = "Engine: starting...";
         await _engine.StartAsync();
-        Status.Text = "Engine: ready — White to move";
+        _ = AnalyzeTurnAsync();
     }
 
     private async void OnClosed(object sender, WindowEventArgs e)
         => await _engine.DisposeAsync();
+
+    private async Task AnalyzeTurnAsync()
+    {
+        _busy = true; Status.Text = "Engine: thinking...";
+        _cur = await _engine.AnalyzeAsync(_game.Fen, 14);
+        _busy = false;
+        UpdateEval(_cur);
+        Refresh();
+    }
 
     private async void OnSquareClicked(string sq)
     {
         if (_busy || !_engine.IsReady) return;
         if (_selected is not null)
         {
-            var san = _game.TryMove(_selected, sq, 'q'); // auto-queen until phase 5 flyout
+            var from = _selected;
+            var promo = _game.LegalTargets(from).Find(t => t.To == sq).Promo ? 'q' : (char?)null;
+            var pre = _game.Clone();
+            var san = promo is not null ? _game.TryMove(from, sq, promo.Value) : _game.TryMove(from, sq);
             _selected = null;
             Board.ClearTargets();
             if (san is not null)
             {
-                _lastMove = (_selected ?? sq, sq);
+                _lastMove = (from, sq);
                 Refresh();
-                await EngineReplyAsync();
+                await OnUserMovedAsync(from + sq, san, pre);
                 return;
             }
         }
-        var piece = PieceAt(sq);
+        var piece = _game.Occupant(sq);
         if (piece is not null && piece.Value.IsWhite == _game.WhiteToMove && !_game.IsGameOver)
         {
             _selected = sq;
@@ -90,17 +104,32 @@ public sealed partial class MainWindow : Window
         else { _selected = null; Refresh(); }
     }
 
-    private async Task EngineReplyAsync()
+    private async Task OnUserMovedAsync(string uci, string san, GameState pre)
     {
-        if (_game.IsGameOver) { Refresh(); return; }
         _busy = true; Status.Text = "Engine: thinking...";
-
-        // full-strength analysis of the position after the user's move
+        var moverWhite = !_game.WhiteToMove;
         var post = await _engine.AnalyzeAsync(_game.Fen, 14);
-        UpdateEval(post);
 
-        // opponent reply: Master plays the bestmove; weaker levels re-search
-        // at reduced Skill Level + depth (grading/eval stay full strength)
+        var loss = MoveGrader.LossCp(uci, _cur, post);
+        var grade = MoveGrader.Classify(loss);
+        var note = new CoachNote
+        {
+            Title = $"{Math.Ceiling(_game.MoveCount / 2.0)}. {san}",
+            Symbol = MoveGrader.Symbol(grade),
+            IsBad = grade >= Grade.Inaccuracy,
+            Line = _cur?.Best?.Pv is { Length: > 0 } pv
+                ? "Line: " + string.Join(" ", _game.UciLineToSan(pv)) : null,
+            Refutation = Explainer.Refutation(_game.Clone(), post, moverWhite) is { } r
+                ? $"Refutation: {r}" : null
+        };
+        foreach (var why1 in Explainer.Explain(pre, uci, san, _game.Clone(), _cur, post, loss, moverWhite, _game.MoveCount / 2 + 1))
+            note.Why.Add(why1);
+        _notes.Insert(0, note);
+
+        if (_game.IsGameOver) { _busy = false; Refresh(); return; }
+
+        // opponent reply: Master plays the bestmove; weaker levels re-search at
+        // reduced skill+depth — grading/eval/hints always stay full strength
         var reply = post.BestMove;
         var level = Levels[LevelSel.SelectedIndex < 0 ? 2 : LevelSel.SelectedIndex];
         if (level is { } w)
@@ -108,32 +137,27 @@ public sealed partial class MainWindow : Window
 
         if (reply is not null and not "(none)")
         {
+            var c = _game.Clone();
+            var rs = c.TryUci(reply) ?? reply;
             _game.TryUci(reply);
             _lastMove = (reply[..2], reply.Substring(2, 2));
+            _notes.Insert(0, new CoachNote { Title = $"» {Math.Ceiling(_game.MoveCount / 2.0)}… {rs}", IsEngine = true });
         }
         _busy = false;
         Refresh();
+        if (!_game.IsGameOver) _ = AnalyzeTurnAsync();
     }
 
-    private void UpdateEval(SearchResult res)
+    private void UpdateEval(SearchResult? res)
     {
-        var best = res.Best;
+        var best = res?.Best;
         if (best is null) return;
-        var cp = _game.WhiteToMove ? best.Cp : -best.Cp; // score is STM-relative
-        var pct = best.Mate is not null
-            ? (cp > 0 ? 100 : 0)
+        var cp = _game.WhiteToMove ? best.Cp : -best.Cp;
+        var pct = best.Mate is not null ? (cp > 0 ? 100 : 0)
             : (int)System.Math.Round(100.0 / (1 + System.Math.Exp(-0.004 * cp)));
-        EvalFill.Height = pct * 4.8; // 480px bar
-        EvalText.Text = best.Mate is not null
-            ? $"#{best.Mate}"
+        EvalFill.Height = pct * 4.8;
+        EvalText.Text = best.Mate is not null ? $"#{best.Mate}"
             : $"{(cp >= 0 ? "+" : "")}{cp / 100.0:0.0}";
-    }
-
-    private (PieceTypes Type, bool IsWhite)? PieceAt(string sq)
-    {
-        foreach (var (name, type, white) in _game.BoardSquares())
-            if (name == sq) return (type, white);
-        return null;
     }
 
     private IEnumerable<(string To, bool Capture)> Targets(string sq)
