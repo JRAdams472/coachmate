@@ -57,6 +57,8 @@ public sealed partial class ChessBoardView : UserControl
     {
         if (_built) return;
         _built = true;
+        BoardGrid.RowDefinitions.Clear();
+        BoardGrid.ColumnDefinitions.Clear();
         for (var i = 0; i < 8; i++)
         {
             BoardGrid.RowDefinitions.Add(new RowDefinition());
