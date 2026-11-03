@@ -2,9 +2,22 @@
     x:Class="CoachMate.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:board="using:CoachMate.Board"
     Title="CoachMate">
-    <Grid Background="#161512">
-        <TextBlock Text="CoachMate — scaffold OK" Foreground="#e8e6e3"
-                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+    <Grid Background="#161512" Padding="20">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        <Border Grid.Column="0" Width="22" Height="480" Background="#33302b"
+                CornerRadius="4" VerticalAlignment="Top">
+            <Border Height="240" Background="#f8f8f8" VerticalAlignment="Bottom"/>
+        </Border>
+        <board:ChessBoardView x:Name="Board" Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Top"/>
+        <StackPanel Grid.Column="2" Margin="20,0,0,0" Spacing="10">
+            <TextBlock Text="CoachMate" FontSize="20" FontWeight="Bold" Foreground="#e8e6e3"/>
+            <TextBlock x:Name="Status" Text="White to move" Foreground="#9e9a93" TextWrapping="Wrap"/>
+        </StackPanel>
     </Grid>
 </Window>
