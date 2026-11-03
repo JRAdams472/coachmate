@@ -92,6 +92,7 @@ public sealed partial class MainWindow : Window
         NewBtn.Click += async (_, _) => await NewGameAsync();
         FlipBtn.Click += (_, _) => Board.Flip();
         HintBtn.Click += (_, _) => ShowHint();
+        AskBtn.Click += async (_, _) => await AskCoachChatAsync();
         ((FrameworkElement)Content).Loaded += OnLoaded;
         Closed += OnClosed;
         BuildPromoPanel();
@@ -212,19 +213,24 @@ public sealed partial class MainWindow : Window
     private async void OnClosed(object sender, WindowEventArgs e)
         => await _engine.DisposeAsync();
 
-    private async Task AskCoachAsync(CoachNote note)
+    private async Task AskCoachChatAsync()
     {
-        if (note.AiContext is null || _busy) return;
+        var q = AskBox.Text.Trim();
+        if (q.Length == 0) return;
         _ollama.Endpoint = EndpointBox.Text.Trim().TrimEnd('/');
         _ollama.Model = ModelBox.Text.Trim();
-        _notes.Insert(0, new CoachNote { Title = "AI Coach", IsEngine = true });
-        var text = await _ollama.ChatAsync(Narrator.System, note.AiContext);
-        _notes[0].Why.Add(text ?? "Coach unavailable — is Ollama running? (ollama serve / docker)");
-    }
-
-    private void AskCoach_Click(object sender, RoutedEventArgs e)
-    {
-        if (((Button)sender).DataContext is CoachNote n) _ = AskCoachAsync(n);
+        AskOut.Text = "Thinking...";
+        var ctx = $"Position (FEN): {_game.Fen}\nSide to move: {(_game.WhiteToMove ? "White" : "Black")}\n";
+        if (_cur?.Best is { } b)
+        {
+            var best = b.Pv.Length > 0 ? _game.UciLineToSan(new[] { b.Pv[0] }).FirstOrDefault() : null;
+            ctx += $"Engine eval: cp={b.Cp}{(b.Mate is { } m ? $" mate={m}" : "")} best={best}\n";
+        }
+        if (_notes.Count > 0 && _notes[0].Why.Count > 0)
+            ctx += $"Latest coach note: {string.Join(" | ", _notes[0].Why)}\n";
+        ctx += $"Question: {q}";
+        var text = await _ollama.ChatAsync(Narrator.System, ctx);
+        AskOut.Text = text ?? "Coach unavailable — is Ollama running? (docker / ollama serve)";
     }
 
     private async Task AnalyzeTurnAsync()
