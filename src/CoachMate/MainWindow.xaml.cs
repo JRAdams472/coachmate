@@ -9,6 +9,10 @@ using CoachMate.Net;
 using CoachMate.Ai;
 using CoachMate.Puzzles;
 using CoachMate.Rating;
+using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Imaging;
+using System.Text.Json;
+using WinRT.Interop;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
@@ -33,14 +37,16 @@ public sealed partial class MainWindow : Window
             [PieceTypes.Knight] = '♞', [PieceTypes.Pawn] = '♟',
         };
     private int _pieceStyle;
-    // Emoji font draws chess pieces shaded/3D and ignores Foreground (its own
-    // black/white fills); Symbol font draws wireframe and honors Foreground.
-    private (char Glyph, string? Font) PieceVisual(PieceTypes t, bool white) => _pieceStyle switch
-    {
-        1 => (white ? Outline[t] : Filled[t], "Segoe UI Emoji"),
-        2 => (Outline[t], "Segoe UI Symbol"),
-        _ => (white ? Outline[t] : Filled[t], null)
-    };
+    private readonly Pieces.PieceSetManager _setMgr = new();
+    private static string KeyOf(PieceTypes t, bool white) =>
+        (white ? "w" : "b") + t switch
+        {
+            PieceTypes.Pawn => "p", PieceTypes.Knight => "n", PieceTypes.Bishop => "b",
+            PieceTypes.Rook => "r", PieceTypes.Queen => "q", _ => "k"
+        };
+    // glyph+font+key; raster sets use the key, wireframe uses the glyph
+    private (char Glyph, string? Font, string Key) PieceVisual(PieceTypes t, bool white) =>
+        (Outline[t], "Segoe UI Symbol", KeyOf(t, white));
 
     // level -> approx. Elo for UCI_LimitStrength; 0 = Master (unlimited)
     private static readonly int[] LevelElos = { 0, 1900, 1400, 900 };
@@ -69,7 +75,13 @@ public sealed partial class MainWindow : Window
         CoachFeed.ItemsSource = _notes;
         BookList.ItemsSource = _book;
         RatingText.Text = $"You: {_rating.Display}";
-        PieceSel.SelectionChanged += (_, _) => { _pieceStyle = PieceSel.SelectedIndex < 0 ? 0 : PieceSel.SelectedIndex; Refresh(); };
+        BuildPieceCombo();
+        PieceSel.SelectionChanged += async (_, _) =>
+        {
+            if (PieceSel.SelectedItem?.ToString() == "Import set…") await ImportSetAsync();
+            else ApplyPieceStyle();
+        };
+        ApplyPieceStyle();
         PlaySel.SelectionChanged += async (_, _) => await NewGameAsync();
         ModeSel.SelectionChanged += async (_, _) => await ModeChangedAsync();
         PuzzleDbBtn.Click += async (_, _) => await DownloadDbAsync();
@@ -86,14 +98,92 @@ public sealed partial class MainWindow : Window
         Refresh();
     }
 
+    private List<string> _importedSets = new();
+
+    private void BuildPieceCombo(string? select = null)
+    {
+        _importedSets = _setMgr.ListSets().Where(s => s != "cburnett").ToList();
+        PieceSel.Items.Clear();
+        foreach (var i in new[] { "Classic", "3D", "Wireframe" }) PieceSel.Items.Add(i);
+        foreach (var s in _importedSets) PieceSel.Items.Add(s);
+        PieceSel.Items.Add("Import set…");
+        var saved = select ?? LoadSetting("pieceStyle") ?? "Classic";
+        var idx = PieceSel.Items.IndexOf(saved);
+        PieceSel.SelectedIndex = idx < 0 ? 0 : idx;
+    }
+
+    private void ApplyPieceStyle()
+    {
+        var sel = PieceSel.SelectedItem?.ToString() ?? "Classic";
+        if (sel == "Wireframe") Board.SetImages(null, false);
+        else
+        {
+            var set = sel is "Classic" or "3D" ? "cburnett" : sel;
+            try
+            {
+                var imgs = _setMgr.SetPaths(set).ToDictionary(
+                    kv => kv.Key, kv => (ImageSource)new BitmapImage(new Uri(kv.Value)));
+                Board.SetImages(imgs, sel == "3D");
+            }
+            catch { Board.SetImages(null, false); }
+        }
+        SaveSetting("pieceStyle", sel);
+        Refresh();
+    }
+
+    private async Task ImportSetAsync()
+    {
+        var picker = new Windows.Storage.Pickers.FolderPicker();
+        var hwnd = WindowNative.GetWindowHandle(this);
+        InitializeWithWindow.Initialize(picker, hwnd);
+        picker.FileTypeFilter.Add("*");
+        var folder = await picker.PickSingleFolderAsync();
+        if (folder is null) { BuildPieceCombo(); return; }
+        try
+        {
+            var name = _setMgr.ImportSet(folder.Path);
+            BuildPieceCombo(name);
+        }
+        catch (Exception ex)
+        {
+            _notes.Insert(0, new CoachNote { Title = "Import failed" });
+            _notes[0].Why.Add(ex.Message);
+            BuildPieceCombo();
+        }
+        ApplyPieceStyle();
+    }
+
+    private static string SettingsPath => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "CoachMate", "settings.json");
+
+    private static Dictionary<string, string> LoadAll()
+    {
+        try { return JsonSerializer.Deserialize<Dictionary<string, string>>(System.IO.File.ReadAllText(SettingsPath)) ?? new(); }
+        catch { return new(); }
+    }
+
+    private static string? LoadSetting(string k) => LoadAll().GetValueOrDefault(k);
+
+    private static void SaveSetting(string k, string v)
+    {
+        try
+        {
+            var d = LoadAll(); d[k] = v;
+            Directory.CreateDirectory(Path.GetDirectoryName(SettingsPath)!);
+            System.IO.File.WriteAllText(SettingsPath, JsonSerializer.Serialize(d));
+        }
+        catch { }
+    }
+
     private void BuildPromoPanel()
     {
         foreach (var (pt, ch) in new[] { (PieceTypes.Queen, 'q'), (PieceTypes.Rook, 'r'), (PieceTypes.Bishop, 'b'), (PieceTypes.Knight, 'n') })
         {
             var b = new Button { FontSize = 26, Padding = new Thickness(8) };
-            var (pg, pf) = PieceVisual(pt, _userIsWhite);
+            var (pg, pf, _) = PieceVisual(pt, _userIsWhite);
             b.Content = pg.ToString();
-            if (pf is not null) b.FontFamily = new Microsoft.UI.Xaml.Media.FontFamily(pf);
+            if (pf is not null) b.FontFamily = new FontFamily(pf);
             var p = ch;
             b.Click += (_, _) => { _promoChoice = p; FlyoutBase.GetAttachedFlyout(Board).Hide(); };
             PromoPanel.Children.Add(b);
@@ -455,12 +545,12 @@ public sealed partial class MainWindow : Window
 
     private void Refresh()
     {
-        var pieces = new Dictionary<string, (char, bool, string?)>();
+        var pieces = new Dictionary<string, (char, bool, string?, string)>();
         foreach (var (name, type, white) in _game.BoardSquares())
             if (type != PieceTypes.NoPieceType)
             {
-                var (g, f) = PieceVisual(type, white);
-                pieces[name] = (g, white, f);
+                var (g, f, k) = PieceVisual(type, white);
+                pieces[name] = (g, white, f, k);
             }
         Board.EnsureBuilt();
         Board.SetPosition(pieces);

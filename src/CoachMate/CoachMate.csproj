@@ -25,4 +25,9 @@
     <EmbeddedResource Include="..\..\engine\stockfish.exe" Link="engine\stockfish.exe" LogicalName="CoachMate.engine.stockfish.exe" />
     <EmbeddedResource Include="puzzles.csv" LogicalName="CoachMate.puzzles.csv" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="Assets\pieces\**\*.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
 </Project>

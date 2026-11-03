@@ -25,13 +25,18 @@ public sealed partial class ChessBoardView : UserControl
     private bool _flipped;
     private readonly Border[,] _cells = new Border[8, 8];
     private readonly TextBlock[,] _glyphs = new TextBlock[8, 8];
+    private readonly Image[,] _imgs = new Image[8, 8];
     private readonly Border[,] _marks = new Border[8, 8];
+    private readonly Ellipse[,] _shadows = new Ellipse[8, 8];
+    private Dictionary<string, ImageSource>? _images;
+    private readonly string?[,] _keys = new string?[8, 8];
+    private bool _showShadow;
     private readonly List<(UIElement El, Grid Host)> _targets = new();
 
     // drag state
     private string? _dragFrom;
     private (int R, int C)? _pressCell;
-    private TextBlock? _ghost;
+    private UIElement? _ghost;
     private bool _dragging;
 
     public event Action<string>? SquareClicked;      // click-select flow
@@ -67,7 +72,23 @@ public sealed partial class ChessBoardView : UserControl
                 VerticalAlignment = VerticalAlignment.Center
             };
             var inner = new Grid { Width = 60, Height = 60 };
+            var shadow = new Ellipse
+            {
+                Width = 34, Height = 9, Opacity = 0.28,
+                Fill = new SolidColorBrush(Colors.Black),
+                VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(0, 0, 0, 4),
+                Visibility = Visibility.Collapsed, IsHitTestVisible = false
+            };
+            var img = new Image
+            {
+                Width = 52, Height = 52, Stretch = Stretch.Uniform,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                Visibility = Visibility.Collapsed, IsHitTestVisible = false
+            };
             inner.Children.Add(mark);
+            inner.Children.Add(shadow);
+            inner.Children.Add(img);
             inner.Children.Add(glyph);
             if (r == 7)
                 inner.Children.Add(new TextBlock
@@ -93,6 +114,7 @@ public sealed partial class ChessBoardView : UserControl
             Grid.SetRow(cell, r); Grid.SetColumn(cell, c);
             BoardGrid.Children.Add(cell);
             _cells[r, c] = cell; _glyphs[r, c] = glyph; _marks[r, c] = mark;
+            _imgs[r, c] = img; _shadows[r, c] = shadow;
         }
     }
 
@@ -108,22 +130,40 @@ public sealed partial class ChessBoardView : UserControl
         PositionRendered?.Invoke();
     }
 
-    public void SetPosition(IReadOnlyDictionary<string, (char Glyph, bool IsWhite, string? Font)> pieces)
+    /// <summary>Raster set: key->image ("wp".."bk"), or null for glyph rendering.</summary>
+    public void SetImages(Dictionary<string, ImageSource>? images, bool shadow)
+    {
+        _images = images; _showShadow = shadow;
+    }
+
+    public void SetPosition(IReadOnlyDictionary<string, (char Glyph, bool IsWhite, string? Font, string ImgKey)> pieces)
     {
         EnsureBuilt();
         for (var r = 0; r < 8; r++)
         for (var c = 0; c < 8; c++)
         {
             var name = SqName(r, c);
-            if (pieces.TryGetValue(name, out var p))
+            var g = _glyphs[r, c]; var img = _imgs[r, c]; var sh = _shadows[r, c];
+            _keys[r, c] = pieces.TryGetValue(name, out var pk) ? pk.ImgKey : null;
+            if (pieces.TryGetValue(name, out var p) &&
+                _images is not null && _images.TryGetValue(p.ImgKey, out var src))
             {
-                _glyphs[r, c].Text = p.Glyph.ToString();
-                if (p.Font is not null) _glyphs[r, c].FontFamily = new FontFamily(p.Font);
-                _glyphs[r, c].Foreground = p.IsWhite
+                g.Text = "";
+                img.Source = src; img.Visibility = Visibility.Visible;
+                sh.Visibility = _showShadow ? Visibility.Visible : Visibility.Collapsed;
+                continue;
+            }
+            img.Visibility = Visibility.Collapsed;
+            sh.Visibility = Visibility.Collapsed;
+            if (pieces.TryGetValue(name, out p))
+            {
+                g.Text = p.Glyph.ToString();
+                if (p.Font is not null) g.FontFamily = new FontFamily(p.Font);
+                g.Foreground = p.IsWhite
                     ? new SolidColorBrush(Colors.White)
                     : new SolidColorBrush(Colors.Black);
             }
-            else _glyphs[r, c].Text = "";
+            else g.Text = "";
         }
     }
 
@@ -231,7 +271,15 @@ public sealed partial class ChessBoardView : UserControl
             // begin drag if the source has a glyph
             if (string.IsNullOrEmpty(_glyphs[r, c].Text)) { _dragFrom = null; return; }
             _dragging = true;
-            _ghost = new TextBlock
+            if (_images is not null && _keys[r, c] is { } k && _images.TryGetValue(k, out var dragSrc))
+            {
+                _ghost = new Image
+                {
+                    Source = dragSrc, Width = 52, Height = 52, Stretch = Stretch.Uniform,
+                    IsHitTestVisible = false, Opacity = .9
+                };
+            }
+            _ghost ??= new TextBlock
             {
                 Text = _glyphs[r, c].Text, FontSize = 44,
                 FontFamily = _glyphs[r, c].FontFamily,
@@ -239,6 +287,7 @@ public sealed partial class ChessBoardView : UserControl
             };
             Overlay.Children.Add(_ghost);
             _glyphs[r, c].Opacity = 0.35;
+            _imgs[r, c].Opacity = 0.35;
             SquareClicked?.Invoke(_dragFrom); // selects the piece (shows dots)
         }
         if (_ghost is not null)
@@ -255,7 +304,7 @@ public sealed partial class ChessBoardView : UserControl
         var cell = _pressCell;
         _dragFrom = null; _pressCell = null; _dragging = false;
         if (_ghost is not null) { Overlay.Children.Remove(_ghost); _ghost = null; }
-        if (cell is { } pc) _glyphs[pc.R, pc.C].Opacity = 1;
+        if (cell is { } pc) { _glyphs[pc.R, pc.C].Opacity = 1; _imgs[pc.R, pc.C].Opacity = 1; }
         if (from is null) return;
         var to = CellAt(e.GetCurrentPoint(Root).Position);
         if (wasDragging && to is not null && to != from)

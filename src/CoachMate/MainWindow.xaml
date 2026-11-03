@@ -50,11 +50,7 @@
             </StackPanel>
             <StackPanel Orientation="Horizontal" Spacing="8">
                 <TextBlock Text="Pieces:" Foreground="#9e9a93" VerticalAlignment="Center"/>
-                <ComboBox x:Name="PieceSel" SelectedIndex="0" MinWidth="110">
-                    <ComboBoxItem Content="Classic"/>
-                    <ComboBoxItem Content="3D"/>
-                    <ComboBoxItem Content="Wireframe"/>
-                </ComboBox>
+                <ComboBox x:Name="PieceSel" MinWidth="110"/>
             </StackPanel>
             <StackPanel Orientation="Horizontal" Spacing="8">
                 <TextBlock Text="Opponent:" Foreground="#9e9a93" VerticalAlignment="Center"/>
