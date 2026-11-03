@@ -28,6 +28,19 @@ public sealed class GameState
     public int MoveCount => _history.Count;
     public IReadOnlyList<string> MoveSans => _history.Select(h => h.San).ToList();
 
+    /// <summary>PGN move text, e.g. "1. e4 e5 2. Nf3".</summary>
+    public string Pgn()
+    {
+        var sb = new System.Text.StringBuilder();
+        for (var i = 0; i < _history.Count; i += 2)
+        {
+            sb.Append($"{i / 2 + 1}. {_history[i].San}");
+            if (i + 1 < _history.Count) sb.Append($" {_history[i + 1].San}");
+            sb.Append(' ');
+        }
+        return sb.ToString().Trim();
+    }
+
     private static Square Sq(string name) => new(name[1] - '1', name[0] - 'a');
     private static string Name(Square sq) => $"{sq.FileChar}{sq.RankChar}";
 
@@ -77,6 +90,11 @@ public sealed class GameState
     public Move? FindLegal(string from, string to, char? promo = null)
     {
         var f = Sq(from); var t = Sq(to);
+        // ChessLib encodes castling as king->rook-square; translate the
+        // destination-square form (e1g1/e1c1 — standard UCI + human intuition)
+        if (to.Length == 2 && from.Length == 2 && from[1] == to[1]
+            && Occupant(from) is { Type: PieceTypes.King })
+            t = Sq(to[0] switch { 'g' => "h" + to[1], 'c' => "a" + to[1], _ => to });
         foreach (var em in _game.Pos.GenerateMoves())
         {
             var m = em.Move;
