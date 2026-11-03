@@ -8,6 +8,7 @@ using CoachMate.Models;
 using CoachMate.Net;
 using CoachMate.Ai;
 using CoachMate.Puzzles;
+using CoachMate.Rating;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
@@ -41,9 +42,9 @@ public sealed partial class MainWindow : Window
         _ => (white ? Outline[t] : Filled[t], null)
     };
 
-    // level -> (skill, depth) for weakened searches; null = bestmove direct
-    private static readonly (int Skill, int Depth)?[] Levels =
-        { null, (12, 10), (6, 6), (0, 3) };
+    // level -> approx. Elo for UCI_LimitStrength; 0 = Master (unlimited)
+    private static readonly int[] LevelElos = { 0, 1900, 1400, 900 };
+    private static readonly int[] LevelRatings = { 3000, 1900, 1400, 900 };
 
     private GameState _game = new();
     private readonly UciEngine _engine = new();
@@ -59,6 +60,7 @@ public sealed partial class MainWindow : Window
     private Puzzle? _puzzle;
     private int _puzzlePly;
     private bool PracticeMode => ModeSel.SelectedIndex == 1;
+    private readonly RatingTracker _rating = RatingTracker.Load();
     private readonly ObservableCollection<BookRow> _book = new();
 
     public MainWindow()
@@ -66,6 +68,7 @@ public sealed partial class MainWindow : Window
         InitializeComponent();
         CoachFeed.ItemsSource = _notes;
         BookList.ItemsSource = _book;
+        RatingText.Text = $"You: {_rating.Display}";
         PieceSel.SelectionChanged += (_, _) => { _pieceStyle = PieceSel.SelectedIndex < 0 ? 0 : PieceSel.SelectedIndex; Refresh(); };
         PlaySel.SelectionChanged += async (_, _) => await NewGameAsync();
         ModeSel.SelectionChanged += async (_, _) => await ModeChangedAsync();
@@ -230,12 +233,12 @@ public sealed partial class MainWindow : Window
             note.Why);
         _notes.Insert(0, note);
 
-        if (_game.IsGameOver) { _busy = false; Refresh(); return; }
+        if (_game.IsGameOver) { _busy = false; ApplyResult(); Refresh(); return; }
 
         var reply = post.BestMove;
-        var level = Levels[LevelSel.SelectedIndex < 0 ? 2 : LevelSel.SelectedIndex];
-        if (level is { } w)
-            reply = (await _engine.AnalyzeAsync(_game.Fen, w.Depth, w.Skill)).BestMove;
+        var lvl = LevelElos[LevelSel.SelectedIndex < 0 ? 2 : LevelSel.SelectedIndex];
+        if (lvl > 0)
+            reply = (await _engine.AnalyzeAsync(_game.Fen, 12, elo: lvl)).BestMove;
 
         if (reply is not null and not "(none)")
         {
@@ -247,7 +250,26 @@ public sealed partial class MainWindow : Window
         }
         _busy = false;
         Refresh();
-        if (!_game.IsGameOver) _ = AnalyzeTurnAsync();
+        if (_game.IsGameOver) ApplyResult(); else _ = AnalyzeTurnAsync();
+    }
+
+    /// <summary>Score the finished game for the user and update the Glicko estimate.</summary>
+    private void ApplyResult()
+    {
+        if (PracticeMode || _game.MoveCount < 4) return;
+        double score;
+        if (_game.IsCheckmate)
+            score = _game.WhiteToMove == _userIsWhite ? 0 : 1; // side to move is mated
+        else score = 0.5; // stalemate / fifty-move / repetition
+        var lvlIdx = LevelSel.SelectedIndex < 0 ? 2 : LevelSel.SelectedIndex;
+        _rating.Apply(LevelRatings[lvlIdx], 60, score);
+        _notes.Insert(0, new CoachNote
+        {
+            Title = $"Game over — rating {_rating.Display}",
+            Why = { $"Games scored: {_rating.Games}" }
+        });
+        RatingText.Text = $"You: {_rating.Display}";
+        Refresh();
     }
 
     private int MoveNum() => (_game.MoveCount + 1) / 2;
