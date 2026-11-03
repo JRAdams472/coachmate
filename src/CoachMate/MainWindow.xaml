@@ -58,7 +58,12 @@
                     <ComboBoxItem Content="Beginner ~900"/>
                 </ComboBox>
             </StackPanel>
-            <Border Background="#262421" CornerRadius="8" Padding="10" Width="340">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="AI:" Foreground="#9e9a93" VerticalAlignment="Center"/>
+                <TextBox x:Name="EndpointBox" Text="http://localhost:11434" MinWidth="150" FontSize="11"/>
+                <TextBox x:Name="ModelBox" Text="qwen2.5:7b" MinWidth="90" FontSize="11"/>
+            </StackPanel>
+<Border Background="#262421" CornerRadius="8" Padding="10" Width="340">
                 <ScrollViewer MaxHeight="280">
                     <ItemsControl x:Name="CoachFeed">
                         <ItemsControl.ItemTemplate>
@@ -76,6 +81,7 @@
                                     </ItemsControl>
                                     <TextBlock Text="{Binding Refutation}" Foreground="#9e9a93" FontSize="12" TextWrapping="Wrap"/>
                                     <TextBlock Text="{Binding Line}" Foreground="#9e9a93" FontSize="12" TextWrapping="Wrap"/>
+                                    <Button Content="Ask coach" Click="AskCoach_Click" FontSize="11" Padding="8,2" Margin="0,3,0,0" HorizontalAlignment="Left"/>
                                 </StackPanel>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>

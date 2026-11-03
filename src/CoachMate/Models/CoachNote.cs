@@ -12,5 +12,6 @@ public sealed class CoachNote
     public List<string> Why { get; } = new();
     public string? Line { get; set; }
     public string? Refutation { get; set; }
+    public string? AiContext { get; set; }
     public SolidColorBrush SymbolBrush => new(IsBad ? Color.FromArgb(255, 202, 52, 49) : Color.FromArgb(255, 129, 182, 76));
 }
