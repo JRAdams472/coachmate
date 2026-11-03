@@ -91,24 +91,6 @@ public sealed partial class ChessBoardView : UserControl
             inner.Children.Add(shadow);
             inner.Children.Add(img);
             inner.Children.Add(glyph);
-            if (r == 7)
-                inner.Children.Add(new TextBlock
-                {
-                    Text = _flipped ? ((char)('h' - c)).ToString() : ((char)('a' + c)).ToString(),
-                    FontSize = 11, FontWeight = Microsoft.UI.Text.FontWeights.Bold,
-                    Foreground = (r + c) % 2 == 0 ? DarkCoord : LightCoord,
-                    HorizontalAlignment = HorizontalAlignment.Right,
-                    VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(0, 0, 3, 2)
-                });
-            if (c == 0)
-                inner.Children.Add(new TextBlock
-                {
-                    Text = _flipped ? (r + 1).ToString() : (8 - r).ToString(),
-                    FontSize = 11, FontWeight = Microsoft.UI.Text.FontWeights.Bold,
-                    Foreground = (r + c) % 2 == 0 ? DarkCoord : LightCoord,
-                    HorizontalAlignment = HorizontalAlignment.Left,
-                    VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(3, 2, 0, 0)
-                });
             cell.Child = inner;
             cell.Tag = SqName(r, c);
             cell.PointerPressed += OnCellPressed;
@@ -116,6 +98,39 @@ public sealed partial class ChessBoardView : UserControl
             BoardGrid.Children.Add(cell);
             _cells[r, c] = cell; _glyphs[r, c] = glyph; _marks[r, c] = mark;
             _imgs[r, c] = img; _shadows[r, c] = shadow;
+        }
+        BuildLabels();
+    }
+
+    /// <summary>Rank labels down the left, file labels along the bottom — outside the board.</summary>
+    private void BuildLabels()
+    {
+        var fg = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 158, 154, 147));
+        RankLabels.Children.Clear(); RankLabels.RowDefinitions.Clear();
+        for (var r = 0; r < 8; r++)
+        {
+            RankLabels.RowDefinitions.Add(new RowDefinition());
+            var t = new TextBlock
+            {
+                Text = _flipped ? (r + 1).ToString() : (8 - r).ToString(),
+                FontSize = 11, FontWeight = Microsoft.UI.Text.FontWeights.Bold, Foreground = fg,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetRow(t, r); RankLabels.Children.Add(t);
+        }
+        FileLabels.Children.Clear(); FileLabels.ColumnDefinitions.Clear();
+        for (var c = 0; c < 8; c++)
+        {
+            FileLabels.ColumnDefinitions.Add(new ColumnDefinition());
+            var t = new TextBlock
+            {
+                Text = _flipped ? ((char)('h' - c)).ToString() : ((char)('a' + c)).ToString(),
+                FontSize = 11, FontWeight = Microsoft.UI.Text.FontWeights.Bold, Foreground = fg,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetColumn(t, c); FileLabels.Children.Add(t);
         }
     }
 
@@ -263,7 +278,7 @@ public sealed partial class ChessBoardView : UserControl
     private void OnPointerMoved(object sender, PointerRoutedEventArgs e)
     {
         if (_dragFrom is null || _pressCell is null) return;
-        var pt = e.GetCurrentPoint(Root).Position;
+        var pt = e.GetCurrentPoint(BoardArea).Position;
         if (!_dragging)
         {
             var (r, c) = _pressCell.Value;
@@ -318,7 +333,7 @@ public sealed partial class ChessBoardView : UserControl
         if (_ghost is not null) { Overlay.Children.Remove(_ghost); _ghost = null; }
         if (cell is { } pc) { _glyphs[pc.R, pc.C].Opacity = 1; _imgs[pc.R, pc.C].Opacity = 1; }
         if (from is null) return;
-        var to = CellAt(e.GetCurrentPoint(Root).Position);
+        var to = CellAt(e.GetCurrentPoint(BoardArea).Position);
         if (wasDragging && to is not null && to != from)
             MoveAttempted?.Invoke(from, to);
         else if (!wasDragging)

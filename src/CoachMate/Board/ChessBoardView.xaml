@@ -2,8 +2,20 @@
     x:Class="CoachMate.Board.ChessBoardView"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <Grid x:Name="Root" Width="480" Height="480">
-        <Grid x:Name="BoardGrid"/>
-        <Canvas x:Name="Overlay" IsHitTestVisible="False"/>
+    <Grid x:Name="Root" Width="496" Height="496">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="16"/>
+            <ColumnDefinition Width="480"/>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="480"/>
+            <RowDefinition Height="16"/>
+        </Grid.RowDefinitions>
+        <Grid x:Name="RankLabels" Grid.Column="0" Grid.Row="0"/>
+        <Grid x:Name="BoardArea" Grid.Column="1" Grid.Row="0">
+            <Grid x:Name="BoardGrid"/>
+            <Canvas x:Name="Overlay" IsHitTestVisible="False"/>
+        </Grid>
+        <Grid x:Name="FileLabels" Grid.Column="1" Grid.Row="1"/>
     </Grid>
 </UserControl>

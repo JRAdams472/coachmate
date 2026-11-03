@@ -278,6 +278,13 @@ public sealed partial class MainWindow : Window
         if (_selected is null && from != _selected) _selected = from;
         var targets = _game.LegalTargets(from);
         var t = targets.Find(x => x.To == to);
+        // king dragged/clicked to its castle destination -> remap to the rook square
+        if (t.Uci is null && _game.Occupant(from) is { Type: PieceTypes.King })
+        {
+            var rookSq = to[0] switch { 'g' => "h" + to[1], 'c' => "a" + to[1], _ => null };
+            if (rookSq is not null && from[1] == to[1])
+                t = targets.Find(x => x.To == rookSq && x.Castle);
+        }
         if (t.Uci is null) { _selected = null; Board.ClearTargets(); Refresh(); return false; }
         if (PracticeMode) return await AttemptPuzzleMoveAsync(from, to);
         char? promo = null;
@@ -540,7 +547,13 @@ public sealed partial class MainWindow : Window
 
     private IEnumerable<(string To, bool Capture)> Targets(string sq)
     {
-        foreach (var t in _game.LegalTargets(sq)) yield return (t.To, t.Capture);
+        foreach (var t in _game.LegalTargets(sq))
+        {
+            yield return (t.To, t.Capture);
+            // castle targets point at the rook square; also dot the king's landing square
+            if (t.Castle && t.To.Length == 2)
+                yield return ((t.To[0] == 'h' ? "g" : "c") + t.To[1], false);
+        }
     }
 
     private void Refresh()

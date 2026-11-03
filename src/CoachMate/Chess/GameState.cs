@@ -46,7 +46,7 @@ public sealed class GameState
     }
 
     /// <summary>Legal targets for a square: to-square + is-capture + is-promotion.</summary>
-    public List<(string To, bool Capture, bool Promo, string Uci)> LegalTargets(string name)
+    public List<(string To, bool Capture, bool Promo, string Uci, bool Castle)> LegalTargets(string name)
     {
         var sq = Sq(name);
         return _game.Pos.GenerateMoves()
@@ -54,7 +54,8 @@ public sealed class GameState
             .Select(em => (Name(em.Move.ToSquare()),
                            em.Move.IsType(MoveTypes.Enpassant) || _game.Pos.IsOccupied(em.Move.ToSquare()),
                            em.Move.IsType(MoveTypes.Promotion),
-                           Uci(em.Move)))
+                           Uci(em.Move),
+                           em.Move.IsType(MoveTypes.Castling)))
             .ToList();
     }
 
