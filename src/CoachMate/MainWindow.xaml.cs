@@ -32,9 +32,13 @@ public sealed partial class MainWindow : Window
             [PieceTypes.Knight] = '♞', [PieceTypes.Pawn] = '♟',
         };
     private int _pieceStyle;
-    private char Glyph(PieceTypes t, bool white) => _pieceStyle switch
+    // Emoji font draws chess pieces shaded/3D and ignores Foreground (its own
+    // black/white fills); Symbol font draws wireframe and honors Foreground.
+    private (char Glyph, string? Font) PieceVisual(PieceTypes t, bool white) => _pieceStyle switch
     {
-        1 => Filled[t], 2 => Outline[t], _ => white ? Outline[t] : Filled[t]
+        1 => (white ? Outline[t] : Filled[t], "Segoe UI Emoji"),
+        2 => (Outline[t], "Segoe UI Symbol"),
+        _ => (white ? Outline[t] : Filled[t], null)
     };
 
     // level -> (skill, depth) for weakened searches; null = bestmove direct
@@ -84,7 +88,9 @@ public sealed partial class MainWindow : Window
         foreach (var (pt, ch) in new[] { (PieceTypes.Queen, 'q'), (PieceTypes.Rook, 'r'), (PieceTypes.Bishop, 'b'), (PieceTypes.Knight, 'n') })
         {
             var b = new Button { FontSize = 26, Padding = new Thickness(8) };
-            b.Content = Glyph(pt, _userIsWhite).ToString();
+            var (pg, pf) = PieceVisual(pt, _userIsWhite);
+            b.Content = pg.ToString();
+            if (pf is not null) b.FontFamily = new Microsoft.UI.Xaml.Media.FontFamily(pf);
             var p = ch;
             b.Click += (_, _) => { _promoChoice = p; FlyoutBase.GetAttachedFlyout(Board).Hide(); };
             PromoPanel.Children.Add(b);
@@ -427,9 +433,13 @@ public sealed partial class MainWindow : Window
 
     private void Refresh()
     {
-        var pieces = new Dictionary<string, (char, bool)>();
+        var pieces = new Dictionary<string, (char, bool, string?)>();
         foreach (var (name, type, white) in _game.BoardSquares())
-            if (type != PieceTypes.NoPieceType) pieces[name] = (Glyph(type, white), white);
+            if (type != PieceTypes.NoPieceType)
+            {
+                var (g, f) = PieceVisual(type, white);
+                pieces[name] = (g, white, f);
+            }
         Board.EnsureBuilt();
         Board.SetPosition(pieces);
         Board.ClearMarks();

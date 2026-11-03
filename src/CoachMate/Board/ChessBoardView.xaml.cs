@@ -108,7 +108,7 @@ public sealed partial class ChessBoardView : UserControl
         PositionRendered?.Invoke();
     }
 
-    public void SetPosition(IReadOnlyDictionary<string, (char Glyph, bool IsWhite)> pieces)
+    public void SetPosition(IReadOnlyDictionary<string, (char Glyph, bool IsWhite, string? Font)> pieces)
     {
         EnsureBuilt();
         for (var r = 0; r < 8; r++)
@@ -118,6 +118,7 @@ public sealed partial class ChessBoardView : UserControl
             if (pieces.TryGetValue(name, out var p))
             {
                 _glyphs[r, c].Text = p.Glyph.ToString();
+                if (p.Font is not null) _glyphs[r, c].FontFamily = new FontFamily(p.Font);
                 _glyphs[r, c].Foreground = p.IsWhite
                     ? new SolidColorBrush(Colors.White)
                     : new SolidColorBrush(Colors.Black);
@@ -233,6 +234,7 @@ public sealed partial class ChessBoardView : UserControl
             _ghost = new TextBlock
             {
                 Text = _glyphs[r, c].Text, FontSize = 44,
+                FontFamily = _glyphs[r, c].FontFamily,
                 Foreground = _glyphs[r, c].Foreground, IsHitTestVisible = false, Opacity = .9
             };
             Overlay.Children.Add(_ghost);
