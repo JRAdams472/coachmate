@@ -6,6 +6,7 @@ using CoachMate.Coach;
 using CoachMate.Engine;
 using CoachMate.Models;
 using CoachMate.Net;
+using CoachMate.Ai;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
@@ -48,6 +49,7 @@ public sealed partial class MainWindow : Window
     private SearchResult? _cur;
     private bool _userIsWhite = true;
     private readonly CloudDbClient _cloud = new();
+    private readonly OllamaClient _ollama = new();
     private readonly ObservableCollection<BookRow> _book = new();
 
     public MainWindow()
@@ -103,6 +105,21 @@ public sealed partial class MainWindow : Window
 
     private async void OnClosed(object sender, WindowEventArgs e)
         => await _engine.DisposeAsync();
+
+    private async Task AskCoachAsync(CoachNote note)
+    {
+        if (note.AiContext is null || _busy) return;
+        _ollama.Endpoint = EndpointBox.Text.Trim().TrimEnd('/');
+        _ollama.Model = ModelBox.Text.Trim();
+        _notes.Insert(0, new CoachNote { Title = "AI Coach", IsEngine = true });
+        var text = await _ollama.ChatAsync(Narrator.System, note.AiContext);
+        _notes[0].Why.Add(text ?? "Coach unavailable — is Ollama running? (ollama serve / docker)");
+    }
+
+    private void AskCoach_Click(object sender, RoutedEventArgs e)
+    {
+        if (((Button)sender).DataContext is CoachNote n) _ = AskCoachAsync(n);
+    }
 
     private async Task AnalyzeTurnAsync()
     {
@@ -193,6 +210,10 @@ public sealed partial class MainWindow : Window
         };
         foreach (var why1 in Explainer.Explain(pre, uci, san, _game.Clone(), _cur, post, loss, moverWhite, _game.MoveCount / 2 + 1))
             note.Why.Add(why1);
+        note.AiContext = Narrator.Prompt(pre.Fen, san, grade.ToString(), loss,
+            _cur?.Best?.Pv is { Length: > 0 } p ? pre.UciLineToSan(new[] { p[0] }).FirstOrDefault() : null,
+            _cur?.Best?.Pv is { Length: > 0 } p2 ? string.Join(" ", pre.UciLineToSan(p2)) : null,
+            note.Why);
         _notes.Insert(0, note);
 
         if (_game.IsGameOver) { _busy = false; Refresh(); return; }
