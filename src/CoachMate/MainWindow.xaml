@@ -72,22 +72,34 @@
                     <Button x:Name="HintBtn" Content="Hint"/>
                 </StackPanel>
             </StackPanel>
-            <StackPanel Grid.Column="2" Margin="20,0,0,0" Spacing="10">
-                <TextBlock Text="CoachMate" FontSize="20" FontWeight="Bold" Foreground="#e8e6e3"/>
-                <Grid>
-                    <TextBlock x:Name="Status" Text="Engine: starting..." Foreground="#9e9a93"/>
-                    <StackPanel HorizontalAlignment="Right">
-                        <TextBlock x:Name="EvalText" Text="—" FontSize="18" FontWeight="SemiBold"
-                                   Foreground="#e8e6e3" HorizontalAlignment="Right">
-                            <ToolTipService.ToolTip>
-                                <ToolTip Content="Engine evaluation in pawns, from White's side: +0.3 means White is ahead about a third of a pawn. # means a forced mate was found."/>
-                            </ToolTipService.ToolTip>
-                        </TextBlock>
-                        <TextBlock Text="+ white / − black, in pawns" FontSize="9" Foreground="#9e9a93"
-                                   HorizontalAlignment="Right"/>
+            <Grid Grid.Column="2" Margin="20,0,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Spacing="10" Margin="0,0,16,0">
+                    <TextBlock Text="CoachMate" FontSize="20" FontWeight="Bold" Foreground="#e8e6e3"/>
+                    <Grid>
+                        <TextBlock x:Name="Status" Text="Engine: starting..." Foreground="#9e9a93"/>
+                        <StackPanel HorizontalAlignment="Right">
+                            <TextBlock x:Name="EvalText" Text="—" FontSize="18" FontWeight="SemiBold"
+                                       Foreground="#e8e6e3" HorizontalAlignment="Right">
+                                <ToolTipService.ToolTip>
+                                    <ToolTip Content="Engine evaluation in pawns, from White's side: +0.3 means White is ahead about a third of a pawn. # means a forced mate was found."/>
+                                </ToolTipService.ToolTip>
+                            </TextBlock>
+                            <TextBlock Text="+ white / − black, in pawns" FontSize="9" Foreground="#9e9a93"
+                                       HorizontalAlignment="Right"/>
+                        </StackPanel>
+                    </Grid>
+                    <TextBlock x:Name="RatingText" Text="You: ~1500" Foreground="#81b64c" FontWeight="Bold"/>
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="Phase:" Foreground="#9e9a93" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="PhaseText" Text="Opening" FontWeight="Bold" Foreground="#e8e6e3"/>
                     </StackPanel>
-                </Grid>
-                <TextBlock x:Name="RatingText" Text="You: ~1500" Foreground="#81b64c" FontWeight="Bold"/>
+                    <TextBlock x:Name="GoalText" TextWrapping="Wrap" FontSize="12" Foreground="#9e9a93"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Spacing="10">
                 <Border Background="#262421" CornerRadius="8" Padding="10" Width="340">
                     <StackPanel Spacing="4">
                         <TextBlock Text="Cloud DB" FontWeight="Bold" Foreground="#e8e6e3"/>
@@ -112,11 +124,6 @@
                         <TextBlock x:Name="BookStatus" Text="—" Foreground="#9e9a93" FontSize="12"/>
                     </StackPanel>
                 </Border>
-                <StackPanel Orientation="Horizontal" Spacing="6">
-                    <TextBlock Text="Phase:" Foreground="#9e9a93" VerticalAlignment="Center"/>
-                    <TextBlock x:Name="PhaseText" Text="Opening" FontWeight="Bold" Foreground="#e8e6e3"/>
-                </StackPanel>
-                <TextBlock x:Name="GoalText" TextWrapping="Wrap" Width="340" FontSize="12" Foreground="#9e9a93"/>
                 <Border Background="#262421" CornerRadius="8" Padding="10" Width="340">
                     <StackPanel Spacing="6">
                         <TextBlock Text="Ask the coach" FontWeight="Bold" Foreground="#e8e6e3"/>
@@ -152,7 +159,8 @@
                         </ItemsControl>
                     </ScrollViewer>
                 </Border>
-            </StackPanel>
+                </StackPanel>
+            </Grid>
         </Grid>
     </Grid>
 </Window>
