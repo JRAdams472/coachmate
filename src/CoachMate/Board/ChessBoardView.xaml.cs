@@ -48,6 +48,7 @@ public sealed partial class ChessBoardView : UserControl
         InitializeComponent();
         Root.PointerMoved += OnPointerMoved;
         Root.PointerReleased += OnPointerReleased;
+        Root.PointerExited += OnPointerExited;
     }
 
     private bool _built;
@@ -268,8 +269,8 @@ public sealed partial class ChessBoardView : UserControl
             var (r, c) = _pressCell.Value;
             var cx = c * 60 + 30; var cy = r * 60 + 30;
             if (Math.Abs(pt.X - cx) + Math.Abs(pt.Y - cy) < 14) return;
-            // begin drag if the source has a glyph
-            if (string.IsNullOrEmpty(_glyphs[r, c].Text)) { _dragFrom = null; return; }
+            // begin drag if the source has a piece
+            if (_keys[r, c] is null) { _dragFrom = null; return; }
             _dragging = true;
             if (_images is not null && _keys[r, c] is { } k && _images.TryGetValue(k, out var dragSrc))
             {
@@ -294,6 +295,17 @@ public sealed partial class ChessBoardView : UserControl
         {
             Canvas.SetLeft(_ghost, pt.X - 28);
             Canvas.SetTop(_ghost, pt.Y - 28);
+        }
+    }
+
+    private void OnPointerExited(object sender, PointerRoutedEventArgs e)
+    {
+        // cancel the drag if the pointer leaves the board while pressed
+        if (_dragging)
+        {
+            if (_pressCell is { } pc) { _glyphs[pc.R, pc.C].Opacity = 1; _imgs[pc.R, pc.C].Opacity = 1; }
+            _dragFrom = null; _pressCell = null; _dragging = false;
+            if (_ghost is not null) { Overlay.Children.Remove(_ghost); _ghost = null; }
         }
     }
 
