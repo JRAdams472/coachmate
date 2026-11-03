@@ -7,6 +7,7 @@ using CoachMate.Engine;
 using CoachMate.Models;
 using CoachMate.Net;
 using CoachMate.Ai;
+using CoachMate.Puzzles;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
@@ -50,6 +51,10 @@ public sealed partial class MainWindow : Window
     private bool _userIsWhite = true;
     private readonly CloudDbClient _cloud = new();
     private readonly OllamaClient _ollama = new();
+    private readonly PuzzleStore _puzzleStore = new();
+    private Puzzle? _puzzle;
+    private int _puzzlePly;
+    private bool PracticeMode => ModeSel.SelectedIndex == 1;
     private readonly ObservableCollection<BookRow> _book = new();
 
     public MainWindow()
@@ -59,6 +64,8 @@ public sealed partial class MainWindow : Window
         BookList.ItemsSource = _book;
         PieceSel.SelectionChanged += (_, _) => { _pieceStyle = PieceSel.SelectedIndex < 0 ? 0 : PieceSel.SelectedIndex; Refresh(); };
         PlaySel.SelectionChanged += async (_, _) => await NewGameAsync();
+        ModeSel.SelectionChanged += async (_, _) => await ModeChangedAsync();
+        PuzzleDbBtn.Click += async (_, _) => await DownloadDbAsync();
         Board.SquareClicked += sq => _ = HandleSquareAsync(sq);
         Board.MoveAttempted += (f, t) => _ = AttemptMoveAsync(f, t);
         Board.PositionRendered += Refresh;
@@ -173,6 +180,7 @@ public sealed partial class MainWindow : Window
         var targets = _game.LegalTargets(from);
         var t = targets.Find(x => x.To == to);
         if (t.Uci is null) { _selected = null; Board.ClearTargets(); Refresh(); return false; }
+        if (PracticeMode) return await AttemptPuzzleMoveAsync(from, to);
         char? promo = null;
         if (t.Promo)
         {
@@ -252,8 +260,105 @@ public sealed partial class MainWindow : Window
         _ = AnalyzeTurnAsync();
     }
 
+    private async Task ModeChangedAsync()
+    {
+        if (PracticeMode) { _puzzleStore.Load(); await NextPuzzleAsync(); }
+        else await NewGameAsync();
+    }
+
+    private async Task NextPuzzleAsync()
+    {
+        _engine.Stop();
+        _puzzle = _puzzleStore.Random();
+        _puzzlePly = 0;
+        _game = new GameState(_puzzle.Fen);
+        _selected = null; _cur = null; _lastMove = null;
+        Board.ClearTargets(); Board.ClearArrows();
+        _notes.Clear();
+        _notes.Insert(0, new CoachNote
+        {
+            Title = $"Puzzle {_puzzle.Id} (~{_puzzle.Rating})",
+            Why = { $"Find the best move for {_game.WhiteToMove switch { true => "White", _ => "Black" }}." }
+        });
+        // engine's setup move (lichess format: first move precedes the solve position)
+        if (_puzzle.EngineStarts)
+        {
+            _game.TryUci(_puzzle.Moves[0]);
+            _puzzlePly = 1;
+            var m = _puzzle.Moves[0];
+            _lastMove = (m[..2], m.Substring(2, 2));
+        }
+        // orient the board for the solving side
+        var userIsWhite = _game.WhiteToMove;
+        if (userIsWhite != _userIsWhite) { _userIsWhite = userIsWhite; Board.Flip(); }
+        Refresh();
+        await Task.CompletedTask;
+    }
+
+    private async Task<bool> AttemptPuzzleMoveAsync(string from, string to)
+    {
+        if (_puzzle is null) return false;
+        var expected = _puzzle.Moves[_puzzlePly];
+        var targets = _game.LegalTargets(from);
+        var t = targets.Find(x => x.To == to);
+        if (t.Uci is null) { _selected = null; Board.ClearTargets(); Refresh(); return false; }
+        char? promo = null;
+        if (t.Promo)
+        {
+            promo = await AskPromotionAsync();
+            if (promo is null) { Refresh(); return true; }
+        }
+        var uci = from + to + (promo?.ToString() ?? "");
+        if (uci != expected)
+        {
+            _selected = null; Board.ClearTargets();
+            _notes.Insert(0, new CoachNote { Title = "✗", Symbol = "?", IsBad = true });
+            _notes[0].Why.Add("Not the best move — try again.");
+            Refresh();
+            return true;
+        }
+        var san = _game.TryUci(uci);
+        _selected = null; Board.ClearTargets(); Board.ClearArrows();
+        _lastMove = (from, to);
+        _notes.Insert(0, new CoachNote { Title = $"✓ {san}", Symbol = "✓" });
+        _puzzlePly++;
+        // engine's reply from the solution
+        if (_puzzlePly < _puzzle.Moves.Length && !_puzzle.IsUserToMove(_puzzlePly))
+        {
+            var r = _puzzle.Moves[_puzzlePly];
+            var c = _game.Clone(); var rs = c.TryUci(r) ?? r;
+            _game.TryUci(r);
+            _lastMove = (r[..2], r.Substring(2, 2));
+            _notes.Insert(0, new CoachNote { Title = $"» {rs}", IsEngine = true });
+            _puzzlePly++;
+        }
+        if (_puzzlePly >= _puzzle.Moves.Length)
+            _notes.Insert(0, new CoachNote { Title = "Solved!", Symbol = "!", Why = { "Puzzle complete — press New for the next one." } });
+        Refresh();
+        return true;
+    }
+
+    private async Task DownloadDbAsync()
+    {
+        if (_busy) return;
+        _busy = true; Status.Text = "Downloading puzzle DB (~700 MB)...";
+        try
+        {
+            var prog = new Progress<(long Got, long Total)>(p =>
+                Status.Text = p.Total > 0
+                    ? $"Downloading puzzle DB: {p.Got / 1048576} MB of ~4 GB data"
+                    : $"Downloading puzzle DB: {p.Got / 1048576} MB");
+            await PuzzleDownloader.DownloadAsync(prog);
+            _puzzleStore.Load();
+            Status.Text = $"Puzzle DB ready ({_puzzleStore.Puzzles.Count:N0} puzzles)";
+        }
+        catch (Exception ex) { Status.Text = $"Download failed: {ex.Message}"; }
+        _busy = false;
+    }
+
     private async Task NewGameAsync()
     {
+        if (PracticeMode) { await NextPuzzleAsync(); return; }
         _engine.Stop();
         _game = new GameState();
         _selected = null; _cur = null; _lastMove = null;
@@ -283,6 +388,14 @@ public sealed partial class MainWindow : Window
 
     private void ShowHint()
     {
+        if (PracticeMode)
+        {
+            if (_puzzle is null || _puzzlePly >= _puzzle.Moves.Length) return;
+            var m = _puzzle.Moves[_puzzlePly];
+            Board.ClearArrows();
+            Board.ShowArrow(m[..2], m.Substring(2, 2));
+            return;
+        }
         if (_cur?.Best?.Pv is not { Length: > 0 } pv || _busy) return;
         Board.ClearArrows();
         Board.ShowArrow(pv[0][..2], pv[0].Substring(2, 2));
