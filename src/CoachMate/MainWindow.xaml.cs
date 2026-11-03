@@ -36,7 +36,6 @@ public sealed partial class MainWindow : Window
             [PieceTypes.Rook] = '♜', [PieceTypes.Bishop] = '♝',
             [PieceTypes.Knight] = '♞', [PieceTypes.Pawn] = '♟',
         };
-    private int _pieceStyle;
     private readonly Pieces.PieceSetManager _setMgr = new();
     private static string KeyOf(PieceTypes t, bool white) =>
         (white ? "w" : "b") + t switch
@@ -65,7 +64,13 @@ public sealed partial class MainWindow : Window
     private readonly PuzzleStore _puzzleStore = new();
     private Puzzle? _puzzle;
     private int _puzzlePly;
-    private bool PracticeMode => ModeSel.SelectedIndex == 1;
+    private bool _practice;
+    private bool _playAsBlack;
+    private int _levelIndex = 2; // Casual ~1400
+    private string _selectedPiece = "Classic";
+    private string _ollamaEndpoint = "http://localhost:11434";
+    private string _ollamaModel = "qwen2.5:7b-instruct";
+    private bool PracticeMode => _practice;
     private readonly RatingTracker _rating = RatingTracker.Load();
     private readonly ObservableCollection<BookRow> _book = new();
 
@@ -75,16 +80,10 @@ public sealed partial class MainWindow : Window
         CoachFeed.ItemsSource = _notes;
         BookList.ItemsSource = _book;
         RatingText.Text = $"You: {_rating.Display}";
-        BuildPieceCombo();
-        PieceSel.SelectionChanged += async (_, _) =>
-        {
-            if (PieceSel.SelectedItem?.ToString() == "Import set…") await ImportSetAsync();
-            else ApplyPieceStyle();
-        };
+        _ollamaEndpoint = LoadSetting("ollamaEndpoint") ?? _ollamaEndpoint;
+        _ollamaModel = LoadSetting("ollamaModel") ?? _ollamaModel;
+        BuildPiecesMenu();
         ApplyPieceStyle();
-        PlaySel.SelectionChanged += async (_, _) => await NewGameAsync();
-        ModeSel.SelectionChanged += async (_, _) => await ModeChangedAsync();
-        PuzzleDbBtn.Click += async (_, _) => await DownloadDbAsync();
         Board.SquareClicked += sq => _ = HandleSquareAsync(sq);
         Board.MoveAttempted += (f, t) => _ = AttemptMoveAsync(f, t);
         Board.PositionRendered += Refresh;
@@ -96,6 +95,32 @@ public sealed partial class MainWindow : Window
         FileNew.Click += async (_, _) => await NewGameAsync();
         FileSave.Click += async (_, _) => await SaveGameAsync();
         FileExit.Click += (_, _) => Close();
+        ModePlay.Click += async (_, _) =>
+        {
+            CheckRadio(ModePlay, ModePlay, ModePractice);
+            if (_practice) { _practice = false; await NewGameAsync(); }
+        };
+        ModePractice.Click += async (_, _) =>
+        {
+            CheckRadio(ModePractice, ModePlay, ModePractice);
+            if (!_practice) { _practice = true; _puzzleStore.Load(); await NextPuzzleAsync(); }
+        };
+        PlayWhite.Click += async (_, _) =>
+        {
+            CheckRadio(PlayWhite, PlayWhite, PlayBlack);
+            if (_playAsBlack) { _playAsBlack = false; await NewGameAsync(); }
+        };
+        PlayBlack.Click += async (_, _) =>
+        {
+            CheckRadio(PlayBlack, PlayWhite, PlayBlack);
+            if (!_playAsBlack) { _playAsBlack = true; await NewGameAsync(); }
+        };
+        LvlMaster.Click += (_, _) => SetLevel(0, LvlMaster);
+        LvlClub.Click += (_, _) => SetLevel(1, LvlClub);
+        LvlCasual.Click += (_, _) => SetLevel(2, LvlCasual);
+        LvlBeginner.Click += (_, _) => SetLevel(3, LvlBeginner);
+        PuzzleDbItem.Click += async (_, _) => await DownloadDbAsync();
+        AiSettingsItem.Click += async (_, _) => await AiSettingsAsync();
         ((FrameworkElement)Content).Loaded += OnLoaded;
         Closed += OnClosed;
         BuildPromoPanel();
@@ -103,22 +128,49 @@ public sealed partial class MainWindow : Window
     }
 
     private List<string> _importedSets = new();
+    private readonly List<ToggleMenuFlyoutItem> _pieceItems = new();
 
-    private void BuildPieceCombo(string? select = null)
+    private static void CheckRadio(ToggleMenuFlyoutItem picked, params ToggleMenuFlyoutItem[] group)
+    {
+        foreach (var i in group) i.IsChecked = i == picked;
+    }
+
+    private void SetLevel(int idx, ToggleMenuFlyoutItem item)
+    {
+        _levelIndex = idx;
+        CheckRadio(item, LvlMaster, LvlClub, LvlCasual, LvlBeginner);
+    }
+
+    private void BuildPiecesMenu(string? select = null)
     {
         _importedSets = _setMgr.ListSets().Where(s => s != "cburnett").ToList();
-        PieceSel.Items.Clear();
-        foreach (var i in new[] { "Classic", "3D", "Wireframe" }) PieceSel.Items.Add(i);
-        foreach (var s in _importedSets) PieceSel.Items.Add(s);
-        PieceSel.Items.Add("Import set…");
+        PiecesMenu.Items.Clear();
+        _pieceItems.Clear();
+        foreach (var name in new[] { "Classic", "3D", "Wireframe" }.Concat(_importedSets))
+        {
+            var item = new ToggleMenuFlyoutItem { Text = name };
+            var n = name;
+            item.Click += (_, _) =>
+            {
+                CheckRadio(item, _pieceItems.ToArray());
+                _selectedPiece = n;
+                ApplyPieceStyle();
+            };
+            PiecesMenu.Items.Add(item);
+            _pieceItems.Add(item);
+        }
+        PiecesMenu.Items.Add(new MenuFlyoutSeparator());
+        var import = new MenuFlyoutItem { Text = "Import set…" };
+        import.Click += async (_, _) => await ImportSetAsync();
+        PiecesMenu.Items.Add(import);
         var saved = select ?? LoadSetting("pieceStyle") ?? "Classic";
-        var idx = PieceSel.Items.IndexOf(saved);
-        PieceSel.SelectedIndex = idx < 0 ? 0 : idx;
+        _selectedPiece = _pieceItems.Any(i => i.Text == saved) ? saved : "Classic";
+        foreach (var i in _pieceItems) i.IsChecked = i.Text == _selectedPiece;
     }
 
     private void ApplyPieceStyle()
     {
-        var sel = PieceSel.SelectedItem?.ToString() ?? "Classic";
+        var sel = _selectedPiece;
         if (sel == "Wireframe") Board.SetImages(null, false);
         else
         {
@@ -142,19 +194,45 @@ public sealed partial class MainWindow : Window
         InitializeWithWindow.Initialize(picker, hwnd);
         picker.FileTypeFilter.Add("*");
         var folder = await picker.PickSingleFolderAsync();
-        if (folder is null) { BuildPieceCombo(); return; }
+        if (folder is null) { BuildPiecesMenu(); return; }
         try
         {
             var name = _setMgr.ImportSet(folder.Path);
-            BuildPieceCombo(name);
+            BuildPiecesMenu(name);
         }
         catch (Exception ex)
         {
             _notes.Insert(0, new CoachNote { Title = "Import failed" });
             _notes[0].Why.Add(ex.Message);
-            BuildPieceCombo();
+            BuildPiecesMenu();
         }
         ApplyPieceStyle();
+    }
+
+    private async Task AiSettingsAsync()
+    {
+        var ep = new TextBox { Text = _ollamaEndpoint, PlaceholderText = "http://localhost:11434" };
+        var model = new TextBox { Text = _ollamaModel, PlaceholderText = "qwen2.5:7b-instruct" };
+        var panel = new StackPanel { Spacing = 6 };
+        panel.Children.Add(new TextBlock { Text = "Ollama endpoint" });
+        panel.Children.Add(ep);
+        panel.Children.Add(new TextBlock { Text = "Model", Margin = new Thickness(0, 8, 0, 0) });
+        panel.Children.Add(model);
+        var dlg = new ContentDialog
+        {
+            Title = "AI settings",
+            Content = panel,
+            PrimaryButtonText = "Save",
+            CloseButtonText = "Cancel",
+            XamlRoot = ((FrameworkElement)Content).XamlRoot
+        };
+        if (await dlg.ShowAsync() == ContentDialogResult.Primary)
+        {
+            _ollamaEndpoint = ep.Text.Trim();
+            _ollamaModel = model.Text.Trim();
+            SaveSetting("ollamaEndpoint", _ollamaEndpoint);
+            SaveSetting("ollamaModel", _ollamaModel);
+        }
     }
 
     private static string SettingsPath => Path.Combine(
@@ -235,8 +313,8 @@ public sealed partial class MainWindow : Window
     {
         var q = AskBox.Text.Trim();
         if (q.Length == 0) return;
-        _ollama.Endpoint = EndpointBox.Text.Trim().TrimEnd('/');
-        _ollama.Model = ModelBox.Text.Trim();
+        _ollama.Endpoint = _ollamaEndpoint.Trim().TrimEnd('/');
+        _ollama.Model = _ollamaModel.Trim();
         AskOut.Text = "Thinking...";
         var ctx = $"Game so far (PGN): {_game.Pgn()}\n";
         if (_notes.Count > 0)
@@ -368,7 +446,7 @@ public sealed partial class MainWindow : Window
         if (_game.IsGameOver) { _busy = false; ApplyResult(); Refresh(); return; }
 
         var reply = post.BestMove;
-        var lvl = LevelElos[LevelSel.SelectedIndex < 0 ? 2 : LevelSel.SelectedIndex];
+        var lvl = LevelElos[_levelIndex];
         if (lvl > 0)
             reply = (await _engine.AnalyzeAsync(_game.Fen, 12, elo: lvl)).BestMove;
 
@@ -393,8 +471,7 @@ public sealed partial class MainWindow : Window
         if (_game.IsCheckmate)
             score = _game.WhiteToMove == _userIsWhite ? 0 : 1; // side to move is mated
         else score = 0.5; // stalemate / fifty-move / repetition
-        var lvlIdx = LevelSel.SelectedIndex < 0 ? 2 : LevelSel.SelectedIndex;
-        _rating.Apply(LevelRatings[lvlIdx], 60, score);
+        _rating.Apply(LevelRatings[_levelIndex], 60, score);
         _notes.Insert(0, new CoachNote
         {
             Title = $"Game over — rating {_rating.Display}",
@@ -418,12 +495,6 @@ public sealed partial class MainWindow : Window
         _lastMove = null;
         Refresh();
         _ = AnalyzeTurnAsync();
-    }
-
-    private async Task ModeChangedAsync()
-    {
-        if (PracticeMode) { _puzzleStore.Load(); await NextPuzzleAsync(); }
-        else await NewGameAsync();
     }
 
     private async Task NextPuzzleAsync()
@@ -524,8 +595,7 @@ public sealed partial class MainWindow : Window
         _selected = null; _cur = null; _lastMove = null;
         Board.ClearTargets(); Board.ClearArrows();
         _notes.Clear();
-        var wantBlack = PlaySel.SelectedIndex == 1;
-        if (wantBlack != !_userIsWhite) { } // orientation handled below
+        var wantBlack = _playAsBlack;
         if (wantBlack && _userIsWhite) { _userIsWhite = false; Board.Flip(); }
         else if (!wantBlack && !_userIsWhite) { _userIsWhite = true; Board.Flip(); }
         Refresh();

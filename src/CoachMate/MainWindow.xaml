@@ -3,152 +3,142 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:board="using:CoachMate.Board"
+    xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     Title="CoachMate">
-    <Grid Background="#161512" Padding="20">
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="Auto"/>
-            <ColumnDefinition Width="Auto"/>
-            <ColumnDefinition Width="*"/>
-        </Grid.ColumnDefinitions>
-        <Border Grid.Column="0" Width="22" Height="480" Background="#33302b"
-                CornerRadius="4" VerticalAlignment="Top">
-            <Border x:Name="EvalFill" Height="240" Background="#f8f8f8" VerticalAlignment="Bottom"/>
-        </Border>
-        <StackPanel Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Top">
-            <board:ChessBoardView x:Name="Board">
-                <FlyoutBase.AttachedFlyout>
-                    <Flyout Placement="Top">
-                        <StackPanel x:Name="PromoPanel" Orientation="Horizontal" Spacing="8"/>
-                    </Flyout>
-                </FlyoutBase.AttachedFlyout>
-            </board:ChessBoardView>
-            <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,10,0,0">
-                <Button x:Name="BackBtn" Content="Back"/>
-                <Button x:Name="NewBtn" Content="New"/>
-                <Button x:Name="FlipBtn" Content="Flip"/>
-                <Button x:Name="HintBtn" Content="Hint"/>
-            </StackPanel>
-        </StackPanel>
-        <StackPanel Grid.Column="2" Margin="20,0,0,0" Spacing="10">
-            <StackPanel Orientation="Horizontal" Spacing="10">
-                <TextBlock Text="CoachMate" FontSize="20" FontWeight="Bold" Foreground="#e8e6e3" VerticalAlignment="Center"/>
-                <Button Content="File" Padding="10,4">
+    <Grid Background="#161512" RequestedTheme="Dark">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <muxc:MenuBar Background="Transparent">
+            <muxc:MenuBarItem Title="File">
+                <MenuFlyoutItem x:Name="FileNew" Text="New game">
+                    <MenuFlyoutItem.KeyboardAccelerators>
+                        <KeyboardAccelerator Key="N" Modifiers="Control"/>
+                    </MenuFlyoutItem.KeyboardAccelerators>
+                </MenuFlyoutItem>
+                <MenuFlyoutItem x:Name="FileSave" Text="Save game…">
+                    <MenuFlyoutItem.KeyboardAccelerators>
+                        <KeyboardAccelerator Key="S" Modifiers="Control"/>
+                    </MenuFlyoutItem.KeyboardAccelerators>
+                </MenuFlyoutItem>
+                <MenuFlyoutSeparator/>
+                <MenuFlyoutItem x:Name="FileExit" Text="Exit"/>
+            </muxc:MenuBarItem>
+            <muxc:MenuBarItem Title="Settings">
+                <MenuFlyoutSubItem Text="Mode">
+                    <ToggleMenuFlyoutItem x:Name="ModePlay" Text="Play" IsChecked="True"/>
+                    <ToggleMenuFlyoutItem x:Name="ModePractice" Text="Practice"/>
+                </MenuFlyoutSubItem>
+                <MenuFlyoutSubItem Text="Play as">
+                    <ToggleMenuFlyoutItem x:Name="PlayWhite" Text="White" IsChecked="True"/>
+                    <ToggleMenuFlyoutItem x:Name="PlayBlack" Text="Black"/>
+                </MenuFlyoutSubItem>
+                <MenuFlyoutSubItem x:Name="PiecesMenu" Text="Pieces"/>
+                <MenuFlyoutSubItem Text="Opponent">
+                    <ToggleMenuFlyoutItem x:Name="LvlMaster" Text="Master"/>
+                    <ToggleMenuFlyoutItem x:Name="LvlClub" Text="Club ~1900"/>
+                    <ToggleMenuFlyoutItem x:Name="LvlCasual" Text="Casual ~1400" IsChecked="True"/>
+                    <ToggleMenuFlyoutItem x:Name="LvlBeginner" Text="Beginner ~900"/>
+                </MenuFlyoutSubItem>
+                <MenuFlyoutSeparator/>
+                <MenuFlyoutItem x:Name="PuzzleDbItem" Text="Get full puzzle DB (~700 MB)"/>
+                <MenuFlyoutItem x:Name="AiSettingsItem" Text="AI settings…"/>
+            </muxc:MenuBarItem>
+        </muxc:MenuBar>
+        <Grid Grid.Row="1" Padding="20">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Border Grid.Column="0" Width="22" Height="480" Background="#33302b"
+                    CornerRadius="4" VerticalAlignment="Top">
+                <Border x:Name="EvalFill" Height="240" Background="#f8f8f8" VerticalAlignment="Bottom"/>
+            </Border>
+            <StackPanel Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Top">
+                <board:ChessBoardView x:Name="Board">
                     <FlyoutBase.AttachedFlyout>
-                        <MenuFlyout>
-                            <MenuFlyoutItem x:Name="FileNew" Text="New game"/>
-                            <MenuFlyoutItem x:Name="FileSave" Text="Save game…"/>
-                            <MenuFlyoutItem x:Name="FileExit" Text="Exit"/>
-                        </MenuFlyout>
-                    </FlyoutBase.AttachedFlyout>
-                </Button>
-                <Button Content="Settings" Padding="10,4">
-                    <FlyoutBase.AttachedFlyout>
-                        <Flyout>
-                            <StackPanel Spacing="10" Width="330">
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <TextBlock Text="Mode:" Foreground="#9e9a93" VerticalAlignment="Center"/>
-                                    <ComboBox x:Name="ModeSel" SelectedIndex="0" MinWidth="110">
-                                        <ComboBoxItem Content="Play"/>
-                                        <ComboBoxItem Content="Practice"/>
-                                    </ComboBox>
-                                </StackPanel>
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <TextBlock Text="Play:" Foreground="#9e9a93" VerticalAlignment="Center"/>
-                                    <ComboBox x:Name="PlaySel" SelectedIndex="0" MinWidth="110">
-                                        <ComboBoxItem Content="White"/>
-                                        <ComboBoxItem Content="Black"/>
-                                    </ComboBox>
-                                </StackPanel>
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <TextBlock Text="Pieces:" Foreground="#9e9a93" VerticalAlignment="Center"/>
-                                    <ComboBox x:Name="PieceSel" MinWidth="110"/>
-                                </StackPanel>
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <TextBlock Text="Opponent:" Foreground="#9e9a93" VerticalAlignment="Center"/>
-                                    <ComboBox x:Name="LevelSel" SelectedIndex="2" MinWidth="110">
-                                        <ComboBoxItem Content="Master"/>
-                                        <ComboBoxItem Content="Club ~1900"/>
-                                        <ComboBoxItem Content="Casual ~1400"/>
-                                        <ComboBoxItem Content="Beginner ~900"/>
-                                    </ComboBox>
-                                </StackPanel>
-                                <Button x:Name="PuzzleDbBtn" Content="Get full puzzle DB (~700 MB)" FontSize="11"
-                                        HorizontalAlignment="Left"/>
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <TextBlock Text="AI:" Foreground="#9e9a93" VerticalAlignment="Center"/>
-                                    <TextBox x:Name="EndpointBox" Text="http://localhost:11434" MinWidth="140" FontSize="11"/>
-                                    <TextBox x:Name="ModelBox" Text="qwen2.5:7b-instruct" MinWidth="90" FontSize="11"/>
-                                </StackPanel>
-                            </StackPanel>
+                        <Flyout Placement="Top">
+                            <StackPanel x:Name="PromoPanel" Orientation="Horizontal" Spacing="8"/>
                         </Flyout>
                     </FlyoutBase.AttachedFlyout>
-                </Button>
+                </board:ChessBoardView>
+                <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,10,0,0">
+                    <Button x:Name="BackBtn" Content="Back"/>
+                    <Button x:Name="NewBtn" Content="New"/>
+                    <Button x:Name="FlipBtn" Content="Flip"/>
+                    <Button x:Name="HintBtn" Content="Hint"/>
+                </StackPanel>
             </StackPanel>
-            <Grid>
-                <TextBlock x:Name="Status" Text="Engine: starting..." Foreground="#9e9a93"/>
-                <TextBlock x:Name="EvalText" Text="—" FontSize="18" FontWeight="SemiBold"
-                           Foreground="#e8e6e3" HorizontalAlignment="Right"/>
-            </Grid>
-            <TextBlock x:Name="RatingText" Text="You: ~1500" Foreground="#81b64c" FontWeight="Bold"/>
-            <Border Background="#262421" CornerRadius="8" Padding="10" Width="340">
-                <StackPanel Spacing="4">
-                    <TextBlock Text="Cloud DB" FontWeight="Bold" Foreground="#e8e6e3"/>
-                    <ItemsControl x:Name="BookList">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Grid Margin="0,2">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="50"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="70"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="{Binding San}" FontWeight="Bold" Foreground="#e8e6e3"/>
-                                    <Grid Grid.Column="1" Height="8" Background="#333" CornerRadius="3" VerticalAlignment="Center">
-                                        <Border Width="{Binding BarWidth}" Background="#81b64c" CornerRadius="3" HorizontalAlignment="Left"/>
+            <StackPanel Grid.Column="2" Margin="20,0,0,0" Spacing="10">
+                <TextBlock Text="CoachMate" FontSize="20" FontWeight="Bold" Foreground="#e8e6e3"/>
+                <Grid>
+                    <TextBlock x:Name="Status" Text="Engine: starting..." Foreground="#9e9a93"/>
+                    <TextBlock x:Name="EvalText" Text="—" FontSize="18" FontWeight="SemiBold"
+                               Foreground="#e8e6e3" HorizontalAlignment="Right"/>
+                </Grid>
+                <TextBlock x:Name="RatingText" Text="You: ~1500" Foreground="#81b64c" FontWeight="Bold"/>
+                <Border Background="#262421" CornerRadius="8" Padding="10" Width="340">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Cloud DB" FontWeight="Bold" Foreground="#e8e6e3"/>
+                        <ItemsControl x:Name="BookList">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,2">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="50"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="70"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding San}" FontWeight="Bold" Foreground="#e8e6e3"/>
+                                        <Grid Grid.Column="1" Height="8" Background="#333" CornerRadius="3" VerticalAlignment="Center">
+                                            <Border Width="{Binding BarWidth}" Background="#81b64c" CornerRadius="3" HorizontalAlignment="Left"/>
+                                        </Grid>
+                                        <TextBlock Grid.Column="2" Text="{Binding Winrate}" Foreground="#9e9a93" FontSize="12" HorizontalAlignment="Right"/>
                                     </Grid>
-                                    <TextBlock Grid.Column="2" Text="{Binding Winrate}" Foreground="#9e9a93" FontSize="12" HorizontalAlignment="Right"/>
-                                </Grid>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                    <TextBlock x:Name="BookStatus" Text="—" Foreground="#9e9a93" FontSize="12"/>
-                </StackPanel>
-            </Border>
-            <Border Background="#262421" CornerRadius="8" Padding="10" Width="340">
-                <StackPanel Spacing="6">
-                    <TextBlock Text="Ask the coach" FontWeight="Bold" Foreground="#e8e6e3"/>
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <TextBox x:Name="AskBox" PlaceholderText="e.g. why is my knight bad here?" Width="260" FontSize="12"/>
-                        <Button x:Name="AskBtn" Content="Ask"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock x:Name="BookStatus" Text="—" Foreground="#9e9a93" FontSize="12"/>
                     </StackPanel>
-                    <TextBlock x:Name="AskOut" Text="Answers appear here — grounded in the current position and engine analysis."
-                               Foreground="#e8e6e3" FontSize="12" TextWrapping="Wrap" IsTextSelectionEnabled="True"/>
-                </StackPanel>
-            </Border>
-            <Border Background="#262421" CornerRadius="8" Padding="10" Width="340">
-                <ScrollViewer MaxHeight="200">
-                    <ItemsControl x:Name="CoachFeed">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <StackPanel Margin="0,0,0,10">
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="{Binding Title}" FontWeight="Bold" Foreground="#e8e6e3"/>
-                                        <TextBlock Text="{Binding Symbol}" FontWeight="Bold" Margin="6,0,0,0"
-                                                   Foreground="{Binding SymbolBrush}"/>
+                </Border>
+                <Border Background="#262421" CornerRadius="8" Padding="10" Width="340">
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Ask the coach" FontWeight="Bold" Foreground="#e8e6e3"/>
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBox x:Name="AskBox" PlaceholderText="e.g. why is my knight bad here?" Width="260" FontSize="12"/>
+                            <Button x:Name="AskBtn" Content="Ask"/>
+                        </StackPanel>
+                        <TextBlock x:Name="AskOut" Text="Answers appear here — grounded in the current position and engine analysis."
+                                   Foreground="#e8e6e3" FontSize="12" TextWrapping="Wrap" IsTextSelectionEnabled="True"/>
+                    </StackPanel>
+                </Border>
+                <Border Background="#262421" CornerRadius="8" Padding="10" Width="340">
+                    <ScrollViewer MaxHeight="200">
+                        <ItemsControl x:Name="CoachFeed">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Margin="0,0,0,10">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="{Binding Title}" FontWeight="Bold" Foreground="#e8e6e3"/>
+                                            <TextBlock Text="{Binding Symbol}" FontWeight="Bold" Margin="6,0,0,0"
+                                                       Foreground="{Binding SymbolBrush}"/>
+                                        </StackPanel>
+                                        <ItemsControl ItemsSource="{Binding Why}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate><TextBlock Text="{Binding}" Foreground="#e8e6e3" TextWrapping="Wrap"/></DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                        <TextBlock Text="{Binding Refutation}" Foreground="#9e9a93" FontSize="12" TextWrapping="Wrap"/>
+                                        <TextBlock Text="{Binding Line}" Foreground="#9e9a93" FontSize="12" TextWrapping="Wrap"/>
                                     </StackPanel>
-                                    <ItemsControl ItemsSource="{Binding Why}">
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate><TextBlock Text="{Binding}" Foreground="#e8e6e3" TextWrapping="Wrap"/></DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                    <TextBlock Text="{Binding Refutation}" Foreground="#9e9a93" FontSize="12" TextWrapping="Wrap"/>
-                                    <TextBlock Text="{Binding Line}" Foreground="#9e9a93" FontSize="12" TextWrapping="Wrap"/>
-                                </StackPanel>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </ScrollViewer>
-            </Border>
-        </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Border>
+            </StackPanel>
+        </Grid>
     </Grid>
 </Window>
