@@ -14,7 +14,13 @@
                 CornerRadius="4" VerticalAlignment="Top">
             <Border x:Name="EvalFill" Height="240" Background="#f8f8f8" VerticalAlignment="Bottom"/>
         </Border>
-        <board:ChessBoardView x:Name="Board" Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Top"/>
+        <board:ChessBoardView x:Name="Board" Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Top">
+            <FlyoutBase.AttachedFlyout>
+                <Flyout Placement="Top">
+                    <StackPanel x:Name="PromoPanel" Orientation="Horizontal" Spacing="8"/>
+                </Flyout>
+            </FlyoutBase.AttachedFlyout>
+        </board:ChessBoardView>
         <StackPanel Grid.Column="2" Margin="20,0,0,0" Spacing="10">
             <TextBlock Text="CoachMate" FontSize="20" FontWeight="Bold" Foreground="#e8e6e3"/>
             <Grid>
@@ -22,6 +28,19 @@
                 <TextBlock x:Name="EvalText" Text="—" FontSize="18" FontWeight="SemiBold"
                            Foreground="#e8e6e3" HorizontalAlignment="Right"/>
             </Grid>
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <Button x:Name="BackBtn" Content="Back"/>
+                <Button x:Name="NewBtn" Content="New"/>
+                <Button x:Name="FlipBtn" Content="Flip"/>
+                <Button x:Name="HintBtn" Content="Hint"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="Play:" Foreground="#9e9a93" VerticalAlignment="Center"/>
+                <ComboBox x:Name="PlaySel" SelectedIndex="0" MinWidth="110">
+                    <ComboBoxItem Content="White"/>
+                    <ComboBoxItem Content="Black"/>
+                </ComboBox>
+            </StackPanel>
             <StackPanel Orientation="Horizontal" Spacing="8">
                 <TextBlock Text="Pieces:" Foreground="#9e9a93" VerticalAlignment="Center"/>
                 <ComboBox x:Name="PieceSel" SelectedIndex="0" MinWidth="110">
@@ -34,13 +53,13 @@
                 <TextBlock Text="Opponent:" Foreground="#9e9a93" VerticalAlignment="Center"/>
                 <ComboBox x:Name="LevelSel" SelectedIndex="2" MinWidth="110">
                     <ComboBoxItem Content="Master"/>
-                    <ComboBoxItem Content="Club"/>
-                    <ComboBoxItem Content="Casual"/>
-                    <ComboBoxItem Content="Beginner"/>
+                    <ComboBoxItem Content="Club ~1900"/>
+                    <ComboBoxItem Content="Casual ~1400"/>
+                    <ComboBoxItem Content="Beginner ~900"/>
                 </ComboBox>
             </StackPanel>
             <Border Background="#262421" CornerRadius="8" Padding="10" Width="340">
-                <ScrollViewer MaxHeight="300">
+                <ScrollViewer MaxHeight="280">
                     <ItemsControl x:Name="CoachFeed">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
