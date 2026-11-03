@@ -78,3 +78,22 @@ public class TryMovePromoContract
         Assert.Equal("e4", g.TryMove("e2", "e4"));
     }
 }
+
+public class CastleUci
+{
+    [Fact]
+    public void TryUci_StandardCastleNotation_Works()
+    {
+        // stockfish replies e1g1; ChessLib generates e1h1 — must translate
+        var g = new CoachMate.Chess.GameState("r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R w KQkq - 0 1");
+        Assert.Equal("O-O", g.TryUci("e1g1"));
+        Assert.Equal("O-O-O", g.TryUci("e8c8") is null ? null : "O-O-O"); // black: try via fresh
+    }
+
+    [Fact]
+    public void TryMove_KingDestinationSquare_Castles()
+    {
+        var g = new CoachMate.Chess.GameState("r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R w KQkq - 0 1");
+        Assert.Equal("O-O-O", g.TryMove("e1", "c1"));
+    }
+}

@@ -93,6 +93,9 @@ public sealed partial class MainWindow : Window
         FlipBtn.Click += (_, _) => Board.Flip();
         HintBtn.Click += (_, _) => ShowHint();
         AskBtn.Click += async (_, _) => await AskCoachChatAsync();
+        FileNew.Click += async (_, _) => await NewGameAsync();
+        FileSave.Click += async (_, _) => await SaveGameAsync();
+        FileExit.Click += (_, _) => Close();
         ((FrameworkElement)Content).Loaded += OnLoaded;
         Closed += OnClosed;
         BuildPromoPanel();
@@ -175,6 +178,21 @@ public sealed partial class MainWindow : Window
             System.IO.File.WriteAllText(SettingsPath, JsonSerializer.Serialize(d));
         }
         catch { }
+    }
+
+    private async Task SaveGameAsync()
+    {
+        var picker = new Windows.Storage.Pickers.FileSavePicker();
+        InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(this));
+        picker.SuggestedFileName = "coachmate-game.pgn";
+        picker.FileTypeChoices.Add("PGN", new List<string> { ".pgn" });
+        var file = await picker.PickSaveFileAsync();
+        if (file is null) return;
+        var result = _game.IsCheckmate ? (_game.WhiteToMove ? "0-1" : "1-0")
+            : _game.IsStalemate || _game.IsRepetition || _game.IsFiftyMove ? "1/2-1/2" : "*";
+        var pgn = $"[Result \"{result}\"]\n[FEN \"{_game.Fen}\"]\n\n{_game.Pgn()} {result}\n";
+        await Windows.Storage.FileIO.WriteTextAsync(file, pgn);
+        Status.Text = $"Saved to {file.Name}";
     }
 
     private void BuildPromoPanel()
