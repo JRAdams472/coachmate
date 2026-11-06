@@ -421,7 +421,7 @@ public sealed partial class MainWindow : Window
     private async Task AnalyzeTurnAsync()
     {
         _busy = true; Status.Text = "Engine: thinking...";
-        _cur = await _engine.AnalyzeAsync(_game.Fen, 14);
+        _cur = await _engine.AnalyzeAsync(_game, 14);
         _busy = false;
         UpdateEval(_cur);
         _ = RenderBookAsync();
@@ -499,7 +499,7 @@ public sealed partial class MainWindow : Window
     {
         _busy = true; Status.Text = "Engine: thinking...";
         var moverWhite = !_game.WhiteToMove;
-        var post = await _engine.AnalyzeAsync(_game.Fen, 14);
+        var post = await _engine.AnalyzeAsync(_game, 14);
 
         var loss = MoveGrader.LossCp(uci, _cur, post);
         var grade = MoveGrader.Classify(loss);
@@ -526,7 +526,7 @@ public sealed partial class MainWindow : Window
         var reply = post.BestMove;
         var lvl = LevelElos[_levelIndex];
         if (lvl > 0)
-            reply = (await _engine.AnalyzeAsync(_game.Fen, 12, elo: lvl)).BestMove;
+            reply = (await _engine.AnalyzeAsync(_game, 12, elo: lvl)).BestMove;
 
         Log($"reply: fen={_game.Fen} best={reply ?? "null"}");
         if (reply is not null and not "(none)")
@@ -700,7 +700,7 @@ public sealed partial class MainWindow : Window
         if (!_userIsWhite)
         {
             _busy = true; Status.Text = "Engine: thinking...";
-            var res = await _engine.AnalyzeAsync(_game.Fen, 14);
+            var res = await _engine.AnalyzeAsync(_game, 14);
             var m = res.BestMove;
             if (m is not null)
             {

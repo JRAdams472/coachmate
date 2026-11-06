@@ -107,6 +107,15 @@ public class CastleUci
     }
 
     [Fact]
+    public void MoveUcis_Castle_StandardNotation()
+    {
+        // ChessLib stores O-O as e1h1; engines need e1g1 in `position ... moves`
+        var g = new CoachMate.Chess.GameState("r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R w KQkq - 0 1");
+        Assert.NotNull(g.TryUci("e1g1"));
+        Assert.Equal("e1g1", g.MoveUcis[0]);
+    }
+
+    [Fact]
     public void TryUci_KingSidestepToGFile_NotCastleRemapped()
     {
         // worse variant: f6g6 remapped to f6h6 — h6 is legal, so the WRONG
@@ -148,5 +157,39 @@ public class DrawRules
         // black to move, not in check, no legal moves (classic Q vs K stalemate)
         var g = new CoachMate.Chess.GameState("k7/2Q5/8/8/8/8/8/6K1 b - - 0 1");
         Assert.Equal("stalemate", g.DrawReason);
+    }
+
+    [Fact]
+    public void Threefold_OnlyAtThirdOccurrence()
+    {
+        // regression: ChessLib IsRepetition fired on the second occurrence
+        // (and even on a first occurrence via its path-dependent Zobrist key)
+        var g = new CoachMate.Chess.GameState();
+        foreach (var u in new[] { "g1f3", "g8f6", "f3g1", "f6g8" }) g.TryUci(u);
+        Assert.False(g.IsRepetition); // second occurrence — play continues
+        Assert.False(g.IsGameOver);
+        foreach (var u in new[] { "g1f3", "g8f6", "f3g1", "f6g8" }) g.TryUci(u);
+        Assert.True(g.IsRepetition);
+        Assert.Equal("threefold repetition", g.DrawReason);
+    }
+
+    [Fact]
+    public void Threefold_UndonePositionsDontCount()
+    {
+        var g = new CoachMate.Chess.GameState();
+        foreach (var u in new[] { "g1f3", "g8f6", "f3g1", "f6g8", "g1f3", "g8f6", "f3g1" }) g.TryUci(u);
+        g.Undo(); // retract 4.Ng1 — startpos back to two occurrences
+        Assert.False(g.IsRepetition);
+    }
+
+    [Fact]
+    public void Stalemate_NotCheckmate()
+    {
+        // regression: ChessLib IsMate is "no legal moves" — stalemate was
+        // reported as checkmate (Qc8 vs Ka7, boxed in by Rb5)
+        var g = new CoachMate.Chess.GameState("2Q5/k7/8/1R4P1/4N3/P3K2P/8/N7 b - - 0 1");
+        Assert.False(g.IsCheckmate);
+        Assert.Equal("stalemate", g.DrawReason);
+        Assert.True(g.IsGameOver);
     }
 }

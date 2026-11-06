@@ -107,7 +107,19 @@ public sealed partial class UciEngine : IAsyncDisposable
     }
 
     /// <summary>Runs one search; serialized so only one is in flight at a time.</summary>
-    public async Task<SearchResult> AnalyzeAsync(string fen, int depth = 14, int? skill = null, int? elo = null)
+    public Task<SearchResult> AnalyzeAsync(string fen, int depth = 14, int? skill = null, int? elo = null)
+        => AnalyzePositionAsync($"position fen {fen}", depth, skill, elo);
+
+    /// <summary>Analyze a live game — sends `position fen <start> moves <history>`
+    /// so the engine sees repetitions and the 50-move clock, not just a bare FEN.</summary>
+    public Task<SearchResult> AnalyzeAsync(Chess.GameState game, int depth = 14, int? skill = null, int? elo = null)
+    {
+        var cmd = $"position fen {game.StartFen}";
+        if (game.MoveUcis.Count > 0) cmd += $" moves {string.Join(' ', game.MoveUcis)}";
+        return AnalyzePositionAsync(cmd, depth, skill, elo);
+    }
+
+    private async Task<SearchResult> AnalyzePositionAsync(string positionCmd, int depth, int? skill, int? elo)
     {
         await _searchLock.WaitAsync();
         try
@@ -117,7 +129,7 @@ public sealed partial class UciEngine : IAsyncDisposable
             if (skill is { } s) Send($"setoption name Skill Level value {s}");
             if (elo is { } el) { Send("setoption name UCI_LimitStrength value true"); Send($"setoption name UCI_Elo value {el}"); }
             Send("stop");
-            Send($"position fen {fen}");
+            Send(positionCmd);
             Send($"go depth {depth}");
             var res = await tcs.Task;
             if (skill is not null) Send("setoption name Skill Level value 20");

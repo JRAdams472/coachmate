@@ -13,16 +13,35 @@ public sealed class GameState
 {
     private readonly IGame _game;
     private readonly List<(Move Move, string San)> _history = new();
+    private readonly string _startFen;
+    private readonly List<string> _posKeys = new(); // position key per ply, [0] = initial
 
     public GameState() : this(Rudzoft.ChessLib.Fen.Fen.StartPositionFen) {}
-    public GameState(string fen) => _game = GameFactory.Create(fen);
+    public GameState(string fen)
+    {
+        _game = GameFactory.Create(fen);
+        _startFen = fen;
+        _posKeys.Add(PosKey(Fen));
+    }
+
+    /// <summary>FEN before the first move (for `position fen ... moves` engine commands).</summary>
+    public string StartFen => _startFen;
+    /// <summary>All moves played, in standard UCI form (see ChessLibCompat BUG 3).</summary>
+    public IReadOnlyList<string> MoveUcis =>
+        _history.Select(h => ChessLibCompat.StandardUci(h.Move, Uci(h.Move))).ToList();
+
+    /// <summary>board+side+castling+ep — a position's identity for repetition purposes.</summary>
+    private static string PosKey(string fen) => string.Join(' ', fen.Split(' ').Take(4));
 
     public string Fen => _game.Pos.FenNotation;
     public bool WhiteToMove => _game.Pos.SideToMove.IsWhite;
     public bool InCheck => _game.Pos.InCheck;
-    public bool IsCheckmate => _game.Pos.IsMate;
+    // ChessLibCompat BUG 1 — Pos.IsMate ignores check; stalemate reports as mate.
+    public bool IsCheckmate => _game.Pos.IsCheckmate();
     public bool IsStalemate => !InCheck && !_game.Pos.GenerateMoves().Any();
-    public bool IsRepetition => _game.IsRepetition;
+    // ChessLibCompat BUG 2 — Pos.IsRepetition is unusable (twofold fires, real
+    // threefold doesn't, and the path-dependent Zobrist Key can collide).
+    public bool IsRepetition => _posKeys.Count(k => k == _posKeys[^1]) >= 3;
     public bool IsFiftyMove => _game.Pos.Rule50 >= 100;
 
     /// <summary>Dead position: bare kings, or king + single minor vs bare king.</summary>
@@ -104,6 +123,7 @@ public sealed class GameState
         var san = San(move.Value);
         _game.Pos.MakeMove(move.Value, new State());
         _history.Add((move.Value, san));
+        _posKeys.Add(PosKey(Fen));
         return san;
     }
 
@@ -146,6 +166,7 @@ public sealed class GameState
         var (m, _) = _history[^1];
         _game.Pos.TakeMove(m);
         _history.RemoveAt(_history.Count - 1);
+        _posKeys.RemoveAt(_posKeys.Count - 1);
     }
 
     public bool IsAttackedByWhite(string sq) => _game.Pos.IsAttacked(Sq(sq), Player.White);
